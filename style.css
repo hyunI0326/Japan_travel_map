@@ -1,1 +1,39 @@
-/* Add styles here */
+:root {
+  --background-color: #fff;
+  --text-color: #333;
+}
+
+body {
+  background-color: var(--background-color);
+  color: var(--text-color);
+  font-family: sans-serif;
+  transition: background-color 0.3s, color 0.3s;
+}
+
+body.dark-mode {
+  --background-color: #333;
+  --text-color: #fff;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+}
+
+#theme-toggle {
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+}
+
+#generate-lotto-numbers {
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+  margin: 1rem;
+}
+
+#lotto-numbers {
+  margin: 1rem;
+  font-size: 1.2rem;
+}
