@@ -219,3 +219,10 @@ main {
   background-color: var(--accent-color-hover);
   transform: translateY(-2px);
 }
+
+/* Disqus Section Styles */
+#disqus_thread_section {
+  padding: 1.5rem;
+  border-top: 1px solid var(--shadow-color);
+  background-color: var(--card-background);
+}
