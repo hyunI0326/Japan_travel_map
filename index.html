@@ -3,16 +3,25 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Hello World</title>
+  <title>Lotto Number Generator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
   <link href='/style.css' rel='stylesheet'>
 </head>
 <body>
-  <div class="header">
-    <h1>Hello, world!</h1>
-    <button id="theme-toggle">Toggle Dark Mode</button>
+  <div class="app-container">
+    <header class="app-header">
+      <h1>Lotto Number Generator</h1>
+      <button id="theme-toggle">Toggle Theme</button>
+    </header>
+    <main>
+      <div id="lotto-numbers-container">
+        <!-- Lotto numbers will be generated here -->
+      </div>
+      <button id="generate-lotto-numbers">Generate Numbers</button>
+    </main>
   </div>
-  <button id="generate-lotto-numbers">로또 번호 생성</button>
-  <div id="lotto-numbers"></div>
   <script defer type="text/javascript" src="/main.js"></script>
 </body>
 </html>
