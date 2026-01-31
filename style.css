@@ -43,7 +43,7 @@ body {
   border-radius: 12px;
   box-shadow: 0 4px 12px var(--shadow-color);
   overflow: hidden;
-  position: relative; /* Added for absolute positioning of children */
+  /* Removed position: relative; */
   transition: background-color 0.3s ease;
 }
 
@@ -63,7 +63,7 @@ body {
 }
 
 #theme-toggle {
-  position: absolute;
+  position: fixed; /* Changed from absolute to fixed */
   top: 1rem;
   right: 1.5rem;
   background-color: transparent;
