@@ -142,9 +142,80 @@ main {
   width: 100%;
   max-width: 300px;
   transition: background-color 0.2s, transform 0.2s;
+  margin-bottom: 2rem; /* Add margin below the button */
 }
 
 #generate-lotto-numbers:hover {
+  background-color: var(--accent-color-hover);
+  transform: translateY(-2px);
+}
+
+/* Contact Form Styles */
+.contact-form-section {
+  padding: 1.5rem;
+  border-top: 1px solid var(--shadow-color);
+  background-color: var(--card-background);
+}
+
+.contact-form-section h2 {
+  font-size: 1.3rem;
+  font-weight: 600;
+  margin-top: 0;
+  margin-bottom: 1.5rem;
+  text-align: center;
+  color: var(--primary-text-color);
+}
+
+.form-group {
+  margin-bottom: 1rem;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-size: 0.9rem;
+  color: var(--secondary-text-color);
+  text-align: left;
+}
+
+.form-group input[type="text"],
+.form-group input[type="email"],
+.form-group textarea {
+  width: 100%;
+  padding: 0.8rem;
+  border: 1px solid var(--shadow-color);
+  border-radius: 6px;
+  background-color: var(--background-color); /* Use general background for inputs */
+  color: var(--primary-text-color);
+  font-family: 'Poppins', sans-serif;
+  font-size: 0.9rem;
+  box-sizing: border-box; /* Include padding and border in the element's total width and height */
+  transition: border-color 0.2s, background-color 0.2s;
+}
+
+.form-group input[type="text"]:focus,
+.form-group input[type="email"]:focus,
+.form-group textarea:focus {
+  border-color: var(--accent-color);
+  outline: none;
+}
+
+.contact-form-section button[type="submit"] {
+  background-color: var(--accent-color);
+  color: #fff;
+  border: none;
+  padding: 0.8rem 1.5rem;
+  font-size: 1rem;
+  font-weight: 600;
+  border-radius: 6px;
+  cursor: pointer;
+  width: 100%;
+  max-width: 300px;
+  margin-top: 1.5rem;
+  transition: background-color 0.2s, transform 0.2s;
+}
+
+.contact-form-section button[type="submit"]:hover {
   background-color: var(--accent-color-hover);
   transform: translateY(-2px);
 }
