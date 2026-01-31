@@ -43,12 +43,13 @@ body {
   border-radius: 12px;
   box-shadow: 0 4px 12px var(--shadow-color);
   overflow: hidden;
+  position: relative; /* Added for absolute positioning of children */
   transition: background-color 0.3s ease;
 }
 
 .app-header {
   display: flex;
-  justify-content: space-between;
+  justify-content: center; /* Centered the title */
   align-items: center;
   padding: 1rem 1.5rem;
   border-bottom: 1px solid var(--shadow-color);
@@ -62,6 +63,9 @@ body {
 }
 
 #theme-toggle {
+  position: absolute;
+  top: 1rem;
+  right: 1.5rem;
   background-color: transparent;
   border: 1px solid var(--secondary-text-color);
   color: var(--secondary-text-color);
@@ -70,6 +74,7 @@ body {
   cursor: pointer;
   font-weight: 600;
   transition: background-color 0.2s, color 0.2s;
+  z-index: 10; /* Ensure it's above other content */
 }
 
 #theme-toggle:hover {
