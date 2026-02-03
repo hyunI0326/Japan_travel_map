@@ -38,6 +38,37 @@ document.addEventListener('DOMContentLoaded', () => {
     { name: '카레', food_category: 'etc', api_category: 'curry', description: '향신료의 풍미가 가득한 인도 요리' }
   ];
 
+  // --- Theme Toggler ---
+  const applyTheme = () => {
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme === 'dark') {
+      document.body.classList.add('dark-mode');
+    } else if (savedTheme === 'light') {
+      document.body.classList.remove('dark-mode');
+    } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+      document.body.classList.add('dark-mode');
+    }
+    updateThemeButtonText();
+  };
+
+  const updateThemeButtonText = () => {
+    if (themeToggleButton) {
+        const isDarkMode = document.body.classList.contains('dark-mode');
+        themeToggleButton.textContent = isDarkMode ? 'Light Mode' : 'Dark Mode';
+    }
+  };
+
+  if (themeToggleButton) {
+    themeToggleButton.addEventListener('click', () => {
+      const isDarkMode = document.body.classList.toggle('dark-mode');
+      localStorage.setItem('theme', isDarkMode ? 'dark' : 'light');
+      updateThemeButtonText();
+    });
+  }
+  
+  applyTheme();
+
+
   // --- Cookie Consent ---
   if (cookieBanner && cookieAcceptButton) {
     if (!getCookie('cookie_consent')) {
@@ -156,25 +187,5 @@ document.addEventListener('DOMContentLoaded', () => {
         // A reliable, appealing placeholder image
         return `https://images.pexels.com/photos/1640777/pexels-photo-1640777.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1`;
     }
-  }
-
-
-  // --- Theme Toggler ---
-  if (themeToggleButton) {
-    const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-    if (prefersDark) {
-      document.body.classList.add('dark-mode');
-    }
-    updateThemeButtonText();
-
-    themeToggleButton.addEventListener('click', () => {
-      document.body.classList.toggle('dark-mode');
-      updateThemeButtonText();
-    });
-  }
-  
-  function updateThemeButtonText() {
-    const isDarkMode = document.body.classList.contains('dark-mode');
-    themeToggleButton.textContent = isDarkMode ? 'Light Mode' : 'Dark Mode';
   }
 });
