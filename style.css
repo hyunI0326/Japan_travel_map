@@ -87,7 +87,7 @@ main {
   text-align: center;
 }
 
-#lotto-numbers-container {
+#dinner-menu-container {
   display: flex;
   justify-content: center;
   align-items: center;
@@ -97,18 +97,16 @@ main {
   margin-bottom: 2rem;
 }
 
-.lotto-ball {
-  width: 50px;
-  height: 50px;
-  border-radius: 50%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  font-size: 1.5rem;
+.menu-item {
+  padding: 20px 40px;
+  border-radius: 10px;
+  font-size: 1.8rem;
   font-weight: 600;
   color: #fff;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  background: linear-gradient(135deg, var(--accent-color), var(--accent-color-hover));
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
   animation: pop-in 0.5s ease-out;
+  text-align: center;
 }
 
 @keyframes pop-in {
@@ -122,15 +120,7 @@ main {
   }
 }
 
-.lotto-ball:nth-child(1) { background: linear-gradient(135deg, var(--lotto-ball-color-1), #f8c291); }
-.lotto-ball:nth-child(2) { background: linear-gradient(135deg, var(--lotto-ball-color-2), #e58e26); }
-.lotto-ball:nth-child(3) { background: linear-gradient(135deg, var(--lotto-ball-color-3), #de4b39); }
-.lotto-ball:nth-child(4) { background: linear-gradient(135deg, var(--lotto-ball-color-4), #b83b5e); }
-.lotto-ball:nth-child(5) { background: linear-gradient(135deg, var(--lotto-ball-color-5), #4a69bd); }
-.lotto-ball:nth-child(6) { background: linear-gradient(135deg, var(--lotto-ball-color-6), #1e90ff); }
-
-
-#generate-lotto-numbers {
+#generate-dinner-menu {
   background-color: var(--accent-color);
   color: #fff;
   border: none;
@@ -145,7 +135,7 @@ main {
   margin-bottom: 2rem; /* Add margin below the button */
 }
 
-#generate-lotto-numbers:hover {
+#generate-dinner-menu:hover {
   background-color: var(--accent-color-hover);
   transform: translateY(-2px);
 }
