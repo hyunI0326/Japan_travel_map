@@ -4,20 +4,41 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>저메추</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
   <link href='/style.css' rel='stylesheet'>
 </head>
 <body>
   <button id="theme-toggle">Toggle Theme</button>
   <div class="app-container">
     <header class="app-header">
-      <h1>오늘 저녁 뭐 먹지?</h1>
+      <div class="logo-container">
+        <a href="/"><img src="/logo.svg" alt="오늘 저녁 뭐 먹지? Logo" class="logo"></a>
+      </div>
+      <nav class="navigation-bar">
+        <a href="/" class="nav-link active">Home</a>
+        <a href="/about.html" class="nav-link">About</a>
+        <a href="/blog.html" class="nav-link">Blog</a>
+        <a href="/privacy.html" class="nav-link">Privacy Policy</a>
+      </nav>
     </header>
     <main>
+      <h1 class="main-title">오늘 저녁 뭐 먹지?</h1>
       <div id="dinner-menu-container">
         <!-- Dinner menu will be generated here -->
+      </div>
+      <div class="filter-container">
+        <label for="category-filter">카테고리 선택:</label>
+        <select id="category-filter">
+          <option value="any">아무거나</option>
+          <option value="korean">한식</option>
+          <option value="chinese">중식</option>
+          <option value="japanese">일식</option>
+          <option value="western">양식</option>
+          <option value="etc">기타</option>
+        </select>
       </div>
       <button id="generate-dinner-menu">메뉴 추천 받기</button>
     </main>
@@ -44,7 +65,23 @@
     <section id="disqus_thread_section">
       <div id="disqus_thread"></div>
     </section>
+
+    <footer class="app-footer">
+      <p>&copy; 2026 오늘 저녁 뭐 먹지?. All Rights Reserved.</p>
+      <nav class="footer-nav">
+        <a href="/">Home</a> |
+        <a href="/about.html">About</a> |
+        <a href="/blog.html">Blog</a> |
+        <a href="/privacy.html">Privacy Policy</a>
+      </nav>
+    </footer>
   </div>
+
+  <div id="cookie-consent-banner" class="cookie-consent-banner">
+    <p>We use cookies to improve your experience. By continuing to browse, you're accepting our <a href="/privacy.html">Privacy Policy</a>.</p>
+    <button id="cookie-consent-accept">Accept</button>
+  </div>
+
   <script>
     /**
     *  RECOMMENDED CONFIGURATION VARIABLES: EDIT AND UNCOMMENT THE SECTION BELOW TO INSERT DYNAMIC VALUES FROM YOUR PLATFORM OR CMS.
