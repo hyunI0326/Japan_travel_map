@@ -3,107 +3,155 @@ let activeDay = 0;
 let activeStop = 0;
 let activeNearby = null;
 let map;
-let routeLayers = [];
+let mapReady = false;
+let mapMarkers = [];
+let pendingFit = true;
 
-function markerIcon(index, isActive) {
-  return L.divIcon({
-    className: `route-marker${isActive ? " is-active" : ""}`,
-    html: String(index + 1).padStart(2, "0"),
-    iconSize: [34, 34],
-    iconAnchor: [17, 17]
+function localizeBaseMap() {
+  const layers = map.getStyle().layers || [];
+  layers.forEach(layer => {
+    const textField = layer.layout && layer.layout["text-field"];
+    if (layer.type !== "symbol" || !textField || !JSON.stringify(textField).includes("name")) return;
+    try {
+      map.setLayoutProperty(layer.id, "text-field", [
+        "coalesce",
+        ["get", "name:ko"],
+        ["get", "name:latin"],
+        ["get", "name:en"]
+      ]);
+    } catch {
+      // Some icon-only symbol layers do not expose a replaceable name field.
+    }
   });
 }
 
-function nearbyIcon(type, isActive) {
-  return L.divIcon({
-    className: `nearby-marker ${type}${isActive ? " is-active" : ""}`,
-    html: type === "food" ? "맛" : "숍",
-    iconSize: [30, 30],
-    iconAnchor: [15, 15]
-  });
+function createMapMarker({ kind, label, symbol, position, active, lon, lat, onClick }) {
+  const element = document.createElement("button");
+  element.type = "button";
+  element.className = `map-marker-shell ${kind}${active ? " is-active" : ""} label-${position}`;
+  element.setAttribute("aria-label", `${label}, 지도에서 보기`);
+  element.innerHTML = `<span class="map-marker-icon">${symbol}</span><span class="map-marker-text">${label}</span>`;
+  element.addEventListener("click", onClick);
+
+  return new maplibregl.Marker({ element, anchor: "center" })
+    .setLngLat([lon, lat])
+    .addTo(map);
 }
 
 function initializeMap() {
-  if (typeof L === "undefined") {
+  if (typeof maplibregl === "undefined") {
     document.getElementById("travel-map").innerHTML = '<p class="map-error">지도를 불러오지 못했습니다. 잠시 후 새로고침해 주세요.</p>';
     return;
   }
-  map = L.map("travel-map", { zoomControl: false, scrollWheelZoom: true, keyboard: true });
-  L.tileLayer("https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png", {
-    subdomains: "abcd",
-    maxZoom: 20,
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
-  }).addTo(map);
-  L.control.zoom({ position: "topright" }).addTo(map);
+
+  map = new maplibregl.Map({
+    container: "travel-map",
+    style: "https://tiles.openfreemap.org/styles/bright",
+    center: [139.767, 35.681],
+    zoom: 11,
+    attributionControl: true,
+    localIdeographFontFamily: '"Apple SD Gothic Neo", "Noto Sans KR", sans-serif',
+    locale: {
+      "NavigationControl.ZoomIn": "확대",
+      "NavigationControl.ZoomOut": "축소"
+    }
+  });
+  map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
+
+  map.on("load", () => {
+    localizeBaseMap();
+    map.addSource("momotabi-route", {
+      type: "geojson",
+      data: {
+        type: "Feature",
+        properties: {},
+        geometry: { type: "LineString", coordinates: [] }
+      }
+    });
+    map.addLayer({
+      id: "momotabi-route-halo",
+      type: "line",
+      source: "momotabi-route",
+      layout: { "line-cap": "round", "line-join": "round" },
+      paint: { "line-color": "#ffffff", "line-width": 9, "line-opacity": 0.92 }
+    });
+    map.addLayer({
+      id: "momotabi-route-line",
+      type: "line",
+      source: "momotabi-route",
+      layout: { "line-cap": "round", "line-join": "round" },
+      paint: { "line-color": "#df5140", "line-width": 4, "line-opacity": 0.96 }
+    });
+    mapReady = true;
+    renderMap(true);
+  });
 }
 
 function renderMap(fitRoute) {
-  if (!map) return;
-  routeLayers.forEach(layer => layer.remove());
+  pendingFit = pendingFit || fitRoute;
+  if (!map || !mapReady) return;
+
+  mapMarkers.forEach(marker => marker.remove());
+  mapMarkers = [];
+
   const region = regions[activeRegion];
   const day = region.days[activeDay];
-  const coordinates = day.stops.map(stop => [stop.lat, stop.lon]);
-  const nearbyCoordinates = day.nearby.map(place => [place.lat, place.lon]);
-
-  const routeHalo = L.polyline(coordinates, {
-    color: "#ffffff", weight: 9, opacity: 0.92, lineCap: "round", lineJoin: "round", interactive: false
-  }).addTo(map);
-  const routeLine = L.polyline(coordinates, {
-    color: "#df5140", weight: 4, opacity: 0.96, lineCap: "round", lineJoin: "round", interactive: false
-  }).addTo(map);
-
-  const markers = day.stops.map((stop, index) => {
-    const marker = L.marker([stop.lat, stop.lon], {
-      icon: markerIcon(index, activeNearby === null && index === activeStop),
-      keyboard: true,
-      title: `${index + 1}. ${stop.name}`,
-      alt: `${index + 1}. ${stop.name}`
-    }).addTo(map);
-    const tooltipDirections = ["top", "right", "bottom"];
-    const tooltipOffsets = [[0, -17], [17, 0], [0, 17]];
-    marker.bindTooltip(stop.name, {
-      permanent: true,
-      direction: tooltipDirections[index],
-      offset: tooltipOffsets[index],
-      className: `momotabi-tooltip${activeNearby === null && index === activeStop ? " is-active-tooltip" : ""}`
-    });
-    if (index === activeStop) marker.openTooltip();
-    marker.on("click", () => {
-      activeStop = index;
-      activeNearby = null;
-      render(false);
-    });
-    return marker;
+  const coordinates = day.stops.map(stop => [stop.lon, stop.lat]);
+  map.getSource("momotabi-route").setData({
+    type: "Feature",
+    properties: {},
+    geometry: { type: "LineString", coordinates }
   });
-  const nearbyMarkers = day.nearby.map((place, index) => {
-    const marker = L.marker([place.lat, place.lon], {
-      icon: nearbyIcon(place.type, activeNearby === index),
-      keyboard: true,
-      title: place.name,
-      alt: place.name
-    }).addTo(map);
-    const direction = index % 2 === 0 ? "left" : "right";
-    marker.bindTooltip(place.name, {
-      permanent: true,
-      direction,
-      offset: index % 2 === 0 ? [-16, 0] : [16, 0],
-      className: `nearby-tooltip ${place.type}${activeNearby === index ? " is-active" : ""}`
-    }).openTooltip();
-    marker.on("click", () => {
-      activeNearby = index;
-      render(false);
-    });
-    return marker;
-  });
-  routeLayers = [routeHalo, routeLine, ...markers, ...nearbyMarkers];
 
-  if (fitRoute) {
-    map.fitBounds(L.latLngBounds([...coordinates, ...nearbyCoordinates]), { padding: [100, 100], maxZoom: 15, animate: true });
+  const routePositions = ["top", "right", "bottom"];
+  day.stops.forEach((stop, index) => {
+    mapMarkers.push(createMapMarker({
+      kind: "route",
+      label: stop.name,
+      symbol: String(index + 1).padStart(2, "0"),
+      position: routePositions[index] || "top",
+      active: activeNearby === null && activeStop === index,
+      lon: stop.lon,
+      lat: stop.lat,
+      onClick: () => {
+        activeStop = index;
+        activeNearby = null;
+        render(false);
+      }
+    }));
+  });
+
+  day.nearby.forEach((place, index) => {
+    mapMarkers.push(createMapMarker({
+      kind: place.type,
+      label: place.name,
+      symbol: place.type === "food" ? "맛" : "숍",
+      position: index === 0 ? "left" : "right",
+      active: activeNearby === index,
+      lon: place.lon,
+      lat: place.lat,
+      onClick: () => {
+        activeNearby = index;
+        render(false);
+      }
+    }));
+  });
+
+  const allPlaces = [...day.stops, ...day.nearby];
+  if (pendingFit) {
+    const bounds = new maplibregl.LngLatBounds();
+    allPlaces.forEach(place => bounds.extend([place.lon, place.lat]));
+    map.fitBounds(bounds, {
+      padding: { top: 110, right: 110, bottom: 110, left: 110 },
+      maxZoom: 15,
+      duration: 500
+    });
+    pendingFit = false;
   } else {
     const selected = activeNearby === null ? day.stops[activeStop] : day.nearby[activeNearby];
-    map.panTo([selected.lat, selected.lon], { animate: true, duration: 0.35 });
+    map.easeTo({ center: [selected.lon, selected.lat], duration: 350 });
   }
-  requestAnimationFrame(() => map.invalidateSize());
+  requestAnimationFrame(() => map.resize());
 }
 
 function renderRegionSwitcher() {
