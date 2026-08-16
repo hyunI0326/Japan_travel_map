@@ -19,9 +19,10 @@ function initializeMap() {
     return;
   }
   map = L.map("travel-map", { zoomControl: false, scrollWheelZoom: true, keyboard: true });
-  L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    maxZoom: 19,
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+  L.tileLayer("https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png", {
+    subdomains: "abcd",
+    maxZoom: 20,
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
   }).addTo(map);
   L.control.zoom({ position: "topright" }).addTo(map);
 }
@@ -34,10 +35,10 @@ function renderMap(fitRoute) {
   const coordinates = day.stops.map(stop => [stop.lat, stop.lon]);
 
   const routeHalo = L.polyline(coordinates, {
-    color: "#fffdf7", weight: 11, opacity: 0.9, lineCap: "round", lineJoin: "round", interactive: false
+    color: "#ffffff", weight: 9, opacity: 0.92, lineCap: "round", lineJoin: "round", interactive: false
   }).addTo(map);
   const routeLine = L.polyline(coordinates, {
-    color: "#d94a3a", weight: 5, opacity: 0.96, lineCap: "round", lineJoin: "round", interactive: false
+    color: "#df5140", weight: 4, opacity: 0.96, lineCap: "round", lineJoin: "round", interactive: false
   }).addTo(map);
 
   const markers = day.stops.map((stop, index) => {
@@ -47,11 +48,13 @@ function renderMap(fitRoute) {
       title: `${index + 1}. ${stop.name}`,
       alt: `${index + 1}. ${stop.name}`
     }).addTo(map);
+    const tooltipDirections = ["top", "right", "bottom"];
+    const tooltipOffsets = [[0, -17], [17, 0], [0, 17]];
     marker.bindTooltip(stop.name, {
-      permanent: index === activeStop,
-      direction: "top",
-      offset: [0, -18],
-      className: "momotabi-tooltip"
+      permanent: true,
+      direction: tooltipDirections[index],
+      offset: tooltipOffsets[index],
+      className: `momotabi-tooltip${index === activeStop ? " is-active-tooltip" : ""}`
     });
     if (index === activeStop) marker.openTooltip();
     marker.on("click", () => {
@@ -63,7 +66,7 @@ function renderMap(fitRoute) {
   routeLayers = [routeHalo, routeLine, ...markers];
 
   if (fitRoute) {
-    map.fitBounds(L.latLngBounds(coordinates), { padding: [74, 74], maxZoom: 13, animate: true });
+    map.fitBounds(L.latLngBounds(coordinates), { padding: [90, 90], maxZoom: 15, animate: true });
   } else {
     const selected = day.stops[activeStop];
     map.panTo([selected.lat, selected.lon], { animate: true, duration: 0.35 });
@@ -74,7 +77,7 @@ function renderMap(fitRoute) {
 function renderRegionSwitcher() {
   document.getElementById("regions").innerHTML = regions.map((region, index) => `
     <button class="${index === activeRegion ? "selected" : ""}" role="tab" aria-selected="${index === activeRegion}" data-region="${index}">
-      ${region.nameKo}<small>${region.nameJp}</small>
+      ${region.nameKo}
     </button>`).join("");
   document.querySelectorAll("[data-region]").forEach(button => button.addEventListener("click", () => {
     activeRegion = Number(button.dataset.region);
@@ -91,7 +94,7 @@ function render(fitRoute = false) {
 
   document.title = `모모타비 — ${region.nameKo} 3일 여행 코스`;
   document.getElementById("city-en").textContent = region.nameEn;
-  document.getElementById("city-jp").textContent = region.nameJp;
+  document.getElementById("city-jp").textContent = region.nameKo;
   document.getElementById("region-eyebrow").textContent = region.eyebrow;
   document.getElementById("region-title").innerHTML = `${region.headline[0]}<br>${region.headline[1]}`;
   document.getElementById("region-intro").innerHTML = `${region.intro[0]}<br>${region.intro[1]}`;
@@ -117,7 +120,7 @@ function render(fitRoute = false) {
     render(false);
   }));
 
-  document.getElementById("map-label").textContent = `${region.nameEn} · DAY ${activeDay + 1} ROUTE`;
+  document.getElementById("map-label").textContent = `${region.nameKo} · ${activeDay + 1}일차 코스`;
   document.getElementById("map-step").textContent = `${region.nameKo} · DAY ${activeDay + 1} · STOP ${String(activeStop + 1).padStart(2, "0")}`;
   document.getElementById("map-name").textContent = selected.name;
   document.getElementById("map-detail").textContent = `${selected.time} 도착 추천 · ${selected.duration} 머물기`;
