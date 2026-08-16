@@ -1,6 +1,7 @@
 let activeRegion = 0;
 let activeDay = 0;
 let activeStop = 0;
+let activeNearby = null;
 let map;
 let routeLayers = [];
 
@@ -10,6 +11,15 @@ function markerIcon(index, isActive) {
     html: String(index + 1).padStart(2, "0"),
     iconSize: [34, 34],
     iconAnchor: [17, 17]
+  });
+}
+
+function nearbyIcon(type, isActive) {
+  return L.divIcon({
+    className: `nearby-marker ${type}${isActive ? " is-active" : ""}`,
+    html: type === "food" ? "맛" : "숍",
+    iconSize: [30, 30],
+    iconAnchor: [15, 15]
   });
 }
 
@@ -33,6 +43,7 @@ function renderMap(fitRoute) {
   const region = regions[activeRegion];
   const day = region.days[activeDay];
   const coordinates = day.stops.map(stop => [stop.lat, stop.lon]);
+  const nearbyCoordinates = day.nearby.map(place => [place.lat, place.lon]);
 
   const routeHalo = L.polyline(coordinates, {
     color: "#ffffff", weight: 9, opacity: 0.92, lineCap: "round", lineJoin: "round", interactive: false
@@ -43,7 +54,7 @@ function renderMap(fitRoute) {
 
   const markers = day.stops.map((stop, index) => {
     const marker = L.marker([stop.lat, stop.lon], {
-      icon: markerIcon(index, index === activeStop),
+      icon: markerIcon(index, activeNearby === null && index === activeStop),
       keyboard: true,
       title: `${index + 1}. ${stop.name}`,
       alt: `${index + 1}. ${stop.name}`
@@ -54,21 +65,42 @@ function renderMap(fitRoute) {
       permanent: true,
       direction: tooltipDirections[index],
       offset: tooltipOffsets[index],
-      className: `momotabi-tooltip${index === activeStop ? " is-active-tooltip" : ""}`
+      className: `momotabi-tooltip${activeNearby === null && index === activeStop ? " is-active-tooltip" : ""}`
     });
     if (index === activeStop) marker.openTooltip();
     marker.on("click", () => {
       activeStop = index;
+      activeNearby = null;
       render(false);
     });
     return marker;
   });
-  routeLayers = [routeHalo, routeLine, ...markers];
+  const nearbyMarkers = day.nearby.map((place, index) => {
+    const marker = L.marker([place.lat, place.lon], {
+      icon: nearbyIcon(place.type, activeNearby === index),
+      keyboard: true,
+      title: place.name,
+      alt: place.name
+    }).addTo(map);
+    const direction = index % 2 === 0 ? "left" : "right";
+    marker.bindTooltip(place.name, {
+      permanent: true,
+      direction,
+      offset: index % 2 === 0 ? [-16, 0] : [16, 0],
+      className: `nearby-tooltip ${place.type}${activeNearby === index ? " is-active" : ""}`
+    }).openTooltip();
+    marker.on("click", () => {
+      activeNearby = index;
+      render(false);
+    });
+    return marker;
+  });
+  routeLayers = [routeHalo, routeLine, ...markers, ...nearbyMarkers];
 
   if (fitRoute) {
-    map.fitBounds(L.latLngBounds(coordinates), { padding: [90, 90], maxZoom: 15, animate: true });
+    map.fitBounds(L.latLngBounds([...coordinates, ...nearbyCoordinates]), { padding: [100, 100], maxZoom: 15, animate: true });
   } else {
-    const selected = day.stops[activeStop];
+    const selected = activeNearby === null ? day.stops[activeStop] : day.nearby[activeNearby];
     map.panTo([selected.lat, selected.lon], { animate: true, duration: 0.35 });
   }
   requestAnimationFrame(() => map.invalidateSize());
@@ -83,6 +115,7 @@ function renderRegionSwitcher() {
     activeRegion = Number(button.dataset.region);
     activeDay = 0;
     activeStop = 0;
+    activeNearby = null;
     render(true);
   }));
 }
@@ -90,7 +123,7 @@ function renderRegionSwitcher() {
 function render(fitRoute = false) {
   const region = regions[activeRegion];
   const day = region.days[activeDay];
-  const selected = day.stops[activeStop];
+  const selected = activeNearby === null ? day.stops[activeStop] : day.nearby[activeNearby];
 
   document.title = `모모타비 — ${region.nameKo} 3일 여행 코스`;
   document.getElementById("city-en").textContent = region.nameEn;
@@ -117,13 +150,28 @@ function render(fitRoute = false) {
     </button>`).join("");
   document.querySelectorAll("[data-stop]").forEach(button => button.addEventListener("click", () => {
     activeStop = Number(button.dataset.stop);
+    activeNearby = null;
+    render(false);
+  }));
+
+  document.getElementById("nearby").setAttribute("aria-label", `${region.nameKo} ${activeDay + 1}일차 주변 추천`);
+  document.getElementById("nearby").innerHTML = day.nearby.map((place, index) => `
+    <button class="nearby-card ${place.type}${activeNearby === index ? " active" : ""}" data-nearby="${index}" role="listitem" aria-label="${place.name}, 지도에서 보기">
+      <span class="nearby-badge">${place.type === "food" ? "맛집·카페" : "쇼핑·시장"}</span>
+      <strong>${place.name}</strong>
+      <small>${place.note}</small>
+    </button>`).join("");
+  document.querySelectorAll("[data-nearby]").forEach(button => button.addEventListener("click", () => {
+    activeNearby = Number(button.dataset.nearby);
     render(false);
   }));
 
   document.getElementById("map-label").textContent = `${region.nameKo} · ${activeDay + 1}일차 코스`;
-  document.getElementById("map-step").textContent = `${region.nameKo} · DAY ${activeDay + 1} · STOP ${String(activeStop + 1).padStart(2, "0")}`;
+  document.getElementById("map-step").textContent = activeNearby === null
+    ? `${region.nameKo} · ${activeDay + 1}일차 · 코스 ${String(activeStop + 1).padStart(2, "0")}`
+    : `${region.nameKo} · ${activeDay + 1}일차 · ${selected.type === "food" ? "맛집·카페" : "쇼핑·시장"}`;
   document.getElementById("map-name").textContent = selected.name;
-  document.getElementById("map-detail").textContent = `${selected.time} 도착 추천 · ${selected.duration} 머물기`;
+  document.getElementById("map-detail").textContent = activeNearby === null ? `${selected.time} 도착 추천 · ${selected.duration} 머물기` : selected.note;
   document.getElementById("open-map").href = `https://www.openstreetmap.org/?mlat=${selected.lat}&mlon=${selected.lon}#map=16/${selected.lat}/${selected.lon}`;
   renderMap(fitRoute);
 }
@@ -131,6 +179,7 @@ function render(fitRoute = false) {
 document.querySelectorAll("[data-day]").forEach(button => button.addEventListener("click", () => {
   activeDay = Number(button.dataset.day);
   activeStop = 0;
+  activeNearby = null;
   render(true);
 }));
 

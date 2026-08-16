@@ -9,11 +9,11 @@
   <meta property="og:description" content="일본 5개 지역의 3일 여행 코스를 지도에서 만나보세요.">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://joemechu.com/">
-  <meta property="og:image" content="https://joemechu.com/public/og-japan.png?v=20260816-5">
+  <meta property="og:image" content="https://joemechu.com/public/og-japan.png?v=20260816-6">
   <meta name="twitter:card" content="summary_large_image">
-  <link rel="icon" href="./public/favicon.svg?v=20260816-5">
+  <link rel="icon" href="./public/favicon.svg?v=20260816-6">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
-  <link rel="stylesheet" href="./style.css?v=20260816-5">
+  <link rel="stylesheet" href="./style.css?v=20260816-6">
 </head>
 <body>
   <main class="app-shell" id="top">
@@ -47,6 +47,11 @@
       <div class="day-summary"><div><span id="day-label"></span><strong id="day-title"></strong></div><p id="day-transit"></p></div>
       <div class="stops" id="stops" role="list" aria-label="여행 장소"></div>
 
+      <section class="nearby-section" aria-labelledby="nearby-title">
+        <div class="nearby-heading"><span>AROUND THE ROUTE</span><h2 id="nearby-title">주변 맛집·쇼핑</h2></div>
+        <div class="nearby-list" id="nearby" role="list"></div>
+      </section>
+
       <aside class="tip-card" id="tips"><span>LOCAL TIP</span><p id="tip-copy"><strong>스이카 한 장이면 충분해요.</strong> 지하철과 버스는 물론 편의점에서도 쓸 수 있어 동선을 끊지 않아요.</p></aside>
       <p class="disclaimer">운영 시간과 휴무일은 방문 전 공식 정보를 확인해 주세요.</p>
     </section>
@@ -54,13 +59,14 @@
     <section class="map-panel" aria-label="도쿄 여행 지도">
       <div id="travel-map" class="map-canvas" role="region" aria-label="선택한 날짜의 여행 경로 지도"></div>
       <div class="map-shade" aria-hidden="true"></div>
-      <div class="map-label" id="map-label">DAY 1 ROUTE · 3 STOPS</div>
+      <div class="map-label" id="map-label">도쿄 · 1일차 코스</div>
+      <div class="map-legend" aria-label="지도 범례"><span><i class="legend-route"></i>여행 코스</span><span><i class="legend-food"></i>맛집·카페</span><span><i class="legend-shop"></i>쇼핑·시장</span></div>
       <div class="map-float" aria-live="polite"><span id="map-step"></span><strong id="map-name"></strong><small id="map-detail"></small></div>
       <a class="open-map" id="open-map" href="#" target="_blank" rel="noreferrer">큰 지도에서 보기 ↗</a>
     </section>
   </main>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-  <script src="./data.js?v=20260816-5"></script>
-  <script src="./main.js?v=20260816-5"></script>
+  <script src="./data.js?v=20260816-6"></script>
+  <script src="./main.js?v=20260816-6"></script>
 </body>
 </html>

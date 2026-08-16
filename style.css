@@ -63,6 +63,19 @@ h1 { margin:15px 0 18px; font-family:Georgia,"Nanum Myeongjo",serif; font-size:c
 .stop-copy strong { display:block; margin-bottom:7px; font-family:Georgia,"Nanum Myeongjo",serif; font-size:18px; font-weight:600; }
 .stop-note { display:block; color:#748078; font-size:11px; line-height:1.65; }
 .duration { color:#929b95; font-size:10px; }
+.nearby-section { margin-top:28px; }
+.nearby-heading { display:flex; align-items:flex-end; justify-content:space-between; gap:16px; margin-bottom:12px; padding:0 2px; }
+.nearby-heading span { color:var(--accent); font-size:9px; font-weight:900; letter-spacing:.12em; }
+.nearby-heading h2 { margin:0; font-family:Georgia,"Nanum Myeongjo",serif; font-size:18px; font-weight:600; }
+.nearby-list { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+.nearby-card { min-width:0; display:flex; flex-direction:column; align-items:flex-start; gap:7px; padding:16px; text-align:left; border:1px solid var(--line); border-radius:13px; background:rgba(255,255,255,.68); color:var(--ink); cursor:pointer; transition:transform .2s,border-color .2s,box-shadow .2s,background .2s; }
+.nearby-card:hover { transform:translateY(-2px); background:#fff; box-shadow:0 9px 24px rgba(31,46,38,.06); }
+.nearby-card.active { background:#fff; border-color:rgba(46,88,72,.4); box-shadow:0 9px 26px rgba(31,46,38,.08); }
+.nearby-card.food.active { border-color:rgba(223,81,64,.48); }
+.nearby-badge { padding:5px 8px; border-radius:999px; color:var(--green); background:#e6eee9; font-size:8px; font-weight:900; }
+.nearby-card.food .nearby-badge { color:#b44032; background:#fbe8e4; }
+.nearby-card strong { overflow:hidden; width:100%; text-overflow:ellipsis; white-space:nowrap; font-size:12px; }
+.nearby-card small { color:#7a867e; font-size:10px; line-height:1.55; }
 .tip-card { display:flex; gap:18px; margin-top:25px; padding:19px 20px; border-radius:14px; background:#e8eeea; }
 .tip-card>span { flex:0 0 auto; padding-top:3px; color:var(--green); font-size:9px; font-weight:900; letter-spacing:.12em; }
 .tip-card p { margin:0; color:#68756d; font-size:11px; line-height:1.65; }
@@ -79,6 +92,10 @@ h1 { margin:15px 0 18px; font-family:Georgia,"Nanum Myeongjo",serif; font-size:c
 .map-canvas .leaflet-control-attribution a { color:var(--green); }
 .route-marker { display:grid!important; place-items:center; width:32px!important; height:32px!important; margin:-16px 0 0 -16px!important; border:3px solid #fff; border-radius:50%; background:var(--green); color:#fff; font-size:10px; font-weight:900; box-shadow:0 5px 16px rgba(31,46,38,.24); }
 .route-marker.is-active { z-index:700!important; background:var(--accent); box-shadow:0 0 0 5px rgba(223,81,64,.14),0 7px 20px rgba(31,46,38,.26); }
+.nearby-marker { display:grid!important; place-items:center; width:30px!important; height:30px!important; margin:-15px 0 0 -15px!important; border:3px solid #fff; border-radius:10px; color:#fff; font-size:9px; font-weight:900; box-shadow:0 5px 14px rgba(31,46,38,.2); }
+.nearby-marker.food { background:#df7465; }
+.nearby-marker.shop { background:#557f9a; }
+.nearby-marker.is-active { z-index:710!important; box-shadow:0 0 0 5px rgba(31,46,38,.12),0 7px 18px rgba(31,46,38,.25); }
 .momotabi-tooltip { padding:7px 10px; color:var(--ink); background:rgba(255,255,255,.96); border:1px solid rgba(31,46,38,.1); border-radius:9px; font-size:10px; font-weight:800; box-shadow:0 7px 20px rgba(31,46,38,.1); }
 .momotabi-tooltip.is-active-tooltip { color:#fff; background:var(--accent); border-color:var(--accent); }
 .leaflet-tooltip-top.momotabi-tooltip::before { border-top-color:rgba(255,255,255,.96)!important; }
@@ -89,8 +106,21 @@ h1 { margin:15px 0 18px; font-family:Georgia,"Nanum Myeongjo",serif; font-size:c
 .leaflet-tooltip-right.is-active-tooltip::before { border-right-color:var(--accent)!important; }
 .leaflet-tooltip-bottom.is-active-tooltip::before { border-bottom-color:var(--accent)!important; }
 .leaflet-tooltip-left.is-active-tooltip::before { border-left-color:var(--accent)!important; }
+.nearby-tooltip { padding:6px 9px; border:1px solid rgba(31,46,38,.08); border-radius:8px; color:#516158; background:rgba(255,255,255,.94); font-size:9px; font-weight:800; box-shadow:0 6px 18px rgba(31,46,38,.08); }
+.nearby-tooltip.is-active.food { color:#fff; background:#df7465; border-color:#df7465; }
+.nearby-tooltip.is-active.shop { color:#fff; background:#557f9a; border-color:#557f9a; }
+.leaflet-tooltip-left.nearby-tooltip.is-active.food::before { border-left-color:#df7465!important; }
+.leaflet-tooltip-right.nearby-tooltip.is-active.food::before { border-right-color:#df7465!important; }
+.leaflet-tooltip-left.nearby-tooltip.is-active.shop::before { border-left-color:#557f9a!important; }
+.leaflet-tooltip-right.nearby-tooltip.is-active.shop::before { border-right-color:#557f9a!important; }
 .map-shade { pointer-events:none; z-index:450; position:absolute; inset:0; box-shadow:inset 18px 0 45px rgba(31,46,38,.04); }
 .map-label { pointer-events:none; z-index:750; position:absolute; top:24px; left:24px; padding:10px 13px; border:1px solid rgba(31,46,38,.1); border-radius:999px; background:rgba(255,255,255,.94); font-size:9px; font-weight:900; letter-spacing:.1em; box-shadow:0 7px 22px rgba(31,46,38,.09); }
+.map-legend { pointer-events:none; z-index:750; position:absolute; top:68px; left:24px; display:flex; flex-wrap:wrap; gap:10px; padding:9px 11px; border:1px solid rgba(31,46,38,.08); border-radius:10px; background:rgba(255,255,255,.9); color:#637068; font-size:9px; font-weight:800; box-shadow:0 7px 20px rgba(31,46,38,.07); }
+.map-legend span { display:flex; align-items:center; gap:5px; }
+.map-legend i { width:8px; height:8px; display:block; border-radius:50%; }
+.legend-route { background:var(--accent); }
+.legend-food { background:#df7465; }
+.legend-shop { background:#557f9a; }
 .map-float { pointer-events:none; z-index:750; position:absolute; left:24px; bottom:24px; max-width:330px; padding:18px 20px; border:1px solid rgba(31,46,38,.08); border-radius:14px; background:rgba(255,255,255,.95); color:var(--ink); box-shadow:0 14px 38px rgba(31,46,38,.14); backdrop-filter:blur(14px); }
 .map-float>span { display:block; margin-bottom:7px; color:var(--accent); font-size:9px; font-weight:900; letter-spacing:.1em; }
 .map-float strong { display:block; font-family:Georgia,"Nanum Myeongjo",serif; font-size:19px; font-weight:600; }
@@ -117,10 +147,12 @@ h1 { margin:15px 0 18px; font-family:Georgia,"Nanum Myeongjo",serif; font-size:c
   .day-summary{align-items:flex-start;flex-direction:column;gap:8px}
   .stop-card{gap:13px;padding:17px 15px}
   .stop-note{display:none}
+  .nearby-list{grid-template-columns:1fr}
   .tip-card{flex-direction:column;gap:8px}
   .map-float{left:16px;right:16px;bottom:16px;max-width:none}
   .open-map{display:none}
   .map-label{top:16px;left:16px}
+  .map-legend{top:60px;left:16px;right:72px}
   .map-canvas .leaflet-control-zoom{margin-top:16px;margin-right:16px}
 }
 
