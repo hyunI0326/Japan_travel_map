@@ -50,14 +50,24 @@ h1 { margin:16px 0 18px; font-family:Georgia,"Nanum Myeongjo",serif; font-size:c
 .tip-card strong { color:var(--ink); }
 .disclaimer { margin:16px 0 4px; color:#999b96; font-size:9px; text-align:center; }
 .map-panel { position:relative; overflow:hidden; background:#d8ddd6; }
-.map-panel iframe { position:absolute; inset:-8%; width:116%; height:116%; border:0; filter:saturate(.52) sepia(.1) contrast(.94); }
-.map-shade { pointer-events:none; position:absolute; inset:0; box-shadow:inset 20px 0 60px rgba(23,36,30,.08); }
-.map-label { pointer-events:none; position:absolute; top:26px; right:28px; padding:9px 12px; background:rgba(255,253,247,.92); border:1px solid rgba(23,36,30,.15); font-size:9px; font-weight:900; letter-spacing:.14em; box-shadow:0 8px 24px rgba(23,36,30,.08); }
-.map-float { pointer-events:none; position:absolute; left:28px; bottom:28px; max-width:320px; padding:18px 21px; background:var(--ink); color:#fff; box-shadow:0 14px 42px rgba(15,25,20,.25); }
+.map-canvas { position:absolute; inset:0; width:100%; height:100%; background:#d8ddd6; }
+.map-error { position:absolute; inset:0; display:grid; place-items:center; margin:0; padding:24px; color:#6e7771; background:#e4e2da; text-align:center; font-size:12px; }
+.map-canvas .leaflet-tile-pane { filter:saturate(.55) sepia(.08) contrast(.94); }
+.map-canvas .leaflet-control-zoom { margin-top:78px; margin-right:28px; border:0; box-shadow:0 8px 24px rgba(23,36,30,.12); }
+.map-canvas .leaflet-control-zoom a { color:var(--ink); background:rgba(255,253,247,.96); border-color:#d6d1c7; }
+.map-canvas .leaflet-control-attribution { color:#6e7771; background:rgba(255,253,247,.8); font-size:9px; }
+.map-canvas .leaflet-control-attribution a { color:var(--green); }
+.route-marker { display:grid!important; place-items:center; width:34px!important; height:34px!important; margin:-17px 0 0 -17px!important; border:3px solid #fffdf7; border-radius:50%; background:var(--ink); color:#fff; font-size:11px; font-weight:900; box-shadow:0 5px 16px rgba(23,36,30,.3); transition:transform .2s,background .2s; }
+.route-marker.is-active { z-index:700!important; background:var(--red); transform:scale(1.18); }
+.momotabi-tooltip { padding:7px 10px; color:var(--ink); background:#fffdf7; border:1px solid rgba(23,36,30,.16); border-radius:1px; font-size:10px; font-weight:800; box-shadow:0 7px 20px rgba(23,36,30,.12); }
+.momotabi-tooltip::before { border-top-color:#fffdf7!important; }
+.map-shade { pointer-events:none; z-index:450; position:absolute; inset:0; box-shadow:inset 20px 0 60px rgba(23,36,30,.08); }
+.map-label { pointer-events:none; z-index:750; position:absolute; top:26px; right:28px; padding:9px 12px; background:rgba(255,253,247,.92); border:1px solid rgba(23,36,30,.15); font-size:9px; font-weight:900; letter-spacing:.14em; box-shadow:0 8px 24px rgba(23,36,30,.08); }
+.map-float { pointer-events:none; z-index:750; position:absolute; left:28px; bottom:28px; max-width:320px; padding:18px 21px; background:var(--ink); color:#fff; box-shadow:0 14px 42px rgba(15,25,20,.25); }
 .map-float>span { display:block; color:#e98176; font-size:9px; font-weight:900; letter-spacing:.16em; margin-bottom:7px; }
 .map-float strong { display:block; font-family:Georgia,"Nanum Myeongjo",serif; font-size:19px; font-weight:500; }
 .map-float small { display:block; margin-top:7px; color:#aeb9b2; font-size:10px; }
-.open-map { position:absolute; right:28px; bottom:28px; padding:11px 14px; color:var(--ink); background:rgba(255,253,247,.94); text-decoration:none; border:1px solid rgba(23,36,30,.18); font-size:10px; font-weight:800; box-shadow:0 8px 24px rgba(23,36,30,.09); }
+.open-map { z-index:750; position:absolute; right:28px; bottom:28px; padding:11px 14px; color:var(--ink); background:rgba(255,253,247,.94); text-decoration:none; border:1px solid rgba(23,36,30,.18); font-size:10px; font-weight:800; box-shadow:0 8px 24px rgba(23,36,30,.09); }
 @media(max-width:900px){.app-shell{grid-template-columns:1fr;grid-template-rows:64px auto 62vh}.topbar{padding:0 20px}nav{gap:12px}nav a{display:none}.route-panel{padding:50px 24px 36px;overflow:visible}.day-tabs{top:64px;margin-inline:-24px;padding-inline:24px}h1{font-size:52px}.map-panel{min-height:520px}}
 @media(max-width:520px){.brand span:last-child{display:none}.route-panel{padding-top:38px}h1{font-size:43px}.day-summary{align-items:flex-start;flex-direction:column;gap:8px}.stop-card{gap:13px;padding:17px 15px}.stop-note{display:none}.tip-card{flex-direction:column;gap:8px}.map-float{left:18px;bottom:18px;right:18px;max-width:none}.open-map{display:none}.map-label{top:18px;right:18px}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;transition:none!important}}

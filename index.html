@@ -9,10 +9,11 @@
   <meta property="og:description" content="하루에 세 곳, 여유롭게 만나는 도쿄 여행 코스 지도.">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://joemechu.com/">
-  <meta property="og:image" content="https://joemechu.com/public/og.png?v=20260816-2">
+  <meta property="og:image" content="https://joemechu.com/public/og.png?v=20260816-3">
   <meta name="twitter:card" content="summary_large_image">
-  <link rel="icon" href="./public/favicon.svg?v=20260816-2">
-  <link rel="stylesheet" href="./style.css?v=20260816-2">
+  <link rel="icon" href="./public/favicon.svg?v=20260816-3">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+  <link rel="stylesheet" href="./style.css?v=20260816-3">
 </head>
 <body>
   <main class="app-shell" id="top">
@@ -33,7 +34,7 @@
         <p class="intro">오래된 골목에서 반짝이는 야경까지.<br>하루에 세 곳, 여유롭게 만나는 도쿄.</p>
         <div class="route-meta" aria-label="코스 요약"><span>3일</span><i></i><span>9개 장소</span><i></i><span>걷기 좋은 코스</span></div>
         <figure class="hero-image">
-          <img src="./public/og.png?v=20260816-2" alt="아사쿠사, 도쿄 골목, 시부야를 잇는 모모타비 도쿄 3일 여행 코스" width="1792" height="937" fetchpriority="high">
+          <img src="./public/og.png?v=20260816-3" alt="아사쿠사, 도쿄 골목, 시부야를 잇는 모모타비 도쿄 3일 여행 코스" width="1792" height="937" fetchpriority="high">
         </figure>
       </div>
 
@@ -50,13 +51,14 @@
     </section>
 
     <section class="map-panel" aria-label="도쿄 여행 지도">
-      <iframe id="travel-map" title="도쿄 여행 지도" loading="eager"></iframe>
+      <div id="travel-map" class="map-canvas" role="region" aria-label="선택한 날짜의 여행 경로 지도"></div>
       <div class="map-shade" aria-hidden="true"></div>
-      <div class="map-label">TOKYO · 東京</div>
+      <div class="map-label" id="map-label">DAY 1 ROUTE · 3 STOPS</div>
       <div class="map-float" aria-live="polite"><span id="map-step"></span><strong id="map-name"></strong><small id="map-detail"></small></div>
       <a class="open-map" id="open-map" href="#" target="_blank" rel="noreferrer">큰 지도에서 보기 ↗</a>
     </section>
   </main>
-  <script src="./main.js?v=20260816-2"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script src="./main.js?v=20260816-3"></script>
 </body>
 </html>
