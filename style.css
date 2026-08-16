@@ -24,6 +24,8 @@ h1 { margin:16px 0 18px; font-family:Georgia,"Nanum Myeongjo",serif; font-size:c
 .intro { margin:0; color:#68736d; line-height:1.78; font-size:15px; }
 .route-meta { display:flex; align-items:center; gap:12px; margin:27px 0 36px; color:#536059; font-size:11px; font-weight:800; }
 .route-meta i { width:3px; height:3px; border-radius:50%; background:#9aa29e; }
+.hero-image { margin:0 0 36px; overflow:hidden; border:1px solid #d4cec1; background:#e8e2d7; box-shadow:0 14px 40px rgba(42,49,44,.08); }
+.hero-image img { display:block; width:100%; height:auto; aspect-ratio:1792/937; object-fit:cover; }
 .day-tabs { position:sticky; top:-6vh; z-index:3; display:flex; gap:8px; border-bottom:1px solid #d3cec3; background:rgba(244,240,231,.96); backdrop-filter:blur(12px); }
 .day-tabs button { flex:1; border:0; background:transparent; padding:15px 4px; color:#989a94; cursor:pointer; font-size:11px; font-weight:900; letter-spacing:.1em; }
 .day-tabs button:hover { color:var(--ink); }
