@@ -3,24 +3,24 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>모모타비 — 도쿄의 결을 따라 걷는 3일</title>
-  <meta name="description" content="오래된 골목에서 반짝이는 야경까지, 하루 세 곳을 여유롭게 만나는 도쿄 여행 코스 지도.">
-  <meta property="og:title" content="모모타비 — 도쿄의 결을 따라 걷는 3일">
-  <meta property="og:description" content="하루에 세 곳, 여유롭게 만나는 도쿄 여행 코스 지도.">
+  <title>모모타비 — 일본의 결을 따라 걷는 여행</title>
+  <meta name="description" content="도쿄, 교토, 오사카, 후쿠오카, 삿포로를 하루 세 곳씩 여유롭게 만나는 일본 여행 코스 지도.">
+  <meta property="og:title" content="모모타비 — 일본의 결을 따라 걷는 여행">
+  <meta property="og:description" content="일본 5개 지역의 3일 여행 코스를 지도에서 만나보세요.">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://joemechu.com/">
-  <meta property="og:image" content="https://joemechu.com/public/og.png?v=20260816-3">
+  <meta property="og:image" content="https://joemechu.com/public/og-japan.png?v=20260816-4">
   <meta name="twitter:card" content="summary_large_image">
-  <link rel="icon" href="./public/favicon.svg?v=20260816-3">
+  <link rel="icon" href="./public/favicon.svg?v=20260816-4">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
-  <link rel="stylesheet" href="./style.css?v=20260816-3">
+  <link rel="stylesheet" href="./style.css?v=20260816-4">
 </head>
 <body>
   <main class="app-shell" id="top">
     <header class="topbar">
       <a class="brand" href="#top" aria-label="모모타비 홈"><span class="brand-mark">も</span><span>MOMOTABI</span></a>
       <nav aria-label="주요 메뉴">
-        <a class="active" href="#route">여행 코스</a>
+        <a class="active" href="#regions">지역 코스</a>
         <a href="#tips">여행 팁</a>
         <button class="save-button" id="save-button" type="button" aria-pressed="false">내 코스 저장</button>
       </nav>
@@ -28,16 +28,17 @@
 
     <section class="route-panel" id="route">
       <div class="route-heading">
-        <div class="city-chip"><span class="city-dot"></span> TOKYO <b>東京</b></div>
-        <p class="eyebrow">CURATED ROUTE · 3 DAYS</p>
-        <h1>도쿄의 결을<br>따라 걷는 3일</h1>
-        <p class="intro">오래된 골목에서 반짝이는 야경까지.<br>하루에 세 곳, 여유롭게 만나는 도쿄.</p>
-        <div class="route-meta" aria-label="코스 요약"><span>3일</span><i></i><span>9개 장소</span><i></i><span>걷기 좋은 코스</span></div>
+        <div class="city-chip"><span class="city-dot"></span> <span id="city-en">TOKYO</span> <b id="city-jp">東京</b></div>
+        <p class="eyebrow" id="region-eyebrow">CURATED ROUTE · 3 DAYS</p>
+        <h1 id="region-title">도쿄의 결을<br>따라 걷는 3일</h1>
+        <p class="intro" id="region-intro">오래된 골목에서 반짝이는 야경까지.<br>하루에 세 곳, 여유롭게 만나는 도쿄.</p>
+        <div class="route-meta" aria-label="코스 요약"><span>지역별 3일</span><i></i><span>9개 장소</span><i></i><span>여유로운 동선</span></div>
         <figure class="hero-image">
-          <img src="./public/og.png?v=20260816-3" alt="아사쿠사, 도쿄 골목, 시부야를 잇는 모모타비 도쿄 3일 여행 코스" width="1792" height="937" fetchpriority="high">
+          <img src="./public/og-japan.png?v=20260816-4" alt="일본 여러 지역의 풍경과 여행 경로를 담은 모모타비 일본 여행 코스" width="1731" height="909" fetchpriority="high">
         </figure>
       </div>
 
+      <div class="region-switcher" id="regions" role="tablist" aria-label="일본 여행 지역"></div>
       <div class="day-tabs" role="tablist" aria-label="여행 일자">
         <button class="selected" role="tab" aria-selected="true" data-day="0">DAY 1</button>
         <button role="tab" aria-selected="false" data-day="1">DAY 2</button>
@@ -46,7 +47,7 @@
       <div class="day-summary"><div><span id="day-label"></span><strong id="day-title"></strong></div><p id="day-transit"></p></div>
       <div class="stops" id="stops" role="list" aria-label="여행 장소"></div>
 
-      <aside class="tip-card" id="tips"><span>LOCAL TIP</span><p><strong>스이카 한 장이면 충분해요.</strong> 지하철과 버스는 물론 편의점에서도 쓸 수 있어 동선을 끊지 않아요.</p></aside>
+      <aside class="tip-card" id="tips"><span>LOCAL TIP</span><p id="tip-copy"><strong>스이카 한 장이면 충분해요.</strong> 지하철과 버스는 물론 편의점에서도 쓸 수 있어 동선을 끊지 않아요.</p></aside>
       <p class="disclaimer">운영 시간과 휴무일은 방문 전 공식 정보를 확인해 주세요.</p>
     </section>
 
@@ -59,6 +60,7 @@
     </section>
   </main>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-  <script src="./main.js?v=20260816-3"></script>
+  <script src="./data.js?v=20260816-4"></script>
+  <script src="./main.js?v=20260816-4"></script>
 </body>
 </html>
