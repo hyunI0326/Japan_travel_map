@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>모모타비 — 도쿄의 결을 따라 걷는 3일</title>
+  <meta name="description" content="오래된 골목에서 반짝이는 야경까지, 하루 세 곳을 여유롭게 만나는 도쿄 여행 코스 지도.">
+  <meta property="og:title" content="모모타비 — 도쿄의 결을 따라 걷는 3일">
+  <meta property="og:description" content="하루에 세 곳, 여유롭게 만나는 도쿄 여행 코스 지도.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://joemechu.com/">
+  <meta property="og:image" content="https://joemechu.com/public/og.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="icon" href="/public/favicon.svg">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <main class="app-shell" id="top">
+    <header class="topbar">
+      <a class="brand" href="#top" aria-label="모모타비 홈"><span class="brand-mark">も</span><span>MOMOTABI</span></a>
+      <nav aria-label="주요 메뉴">
+        <a class="active" href="#route">여행 코스</a>
+        <a href="#tips">여행 팁</a>
+        <button class="save-button" id="save-button" type="button" aria-pressed="false">내 코스 저장</button>
+      </nav>
+    </header>
+
+    <section class="route-panel" id="route">
+      <div class="route-heading">
+        <div class="city-chip"><span class="city-dot"></span> TOKYO <b>東京</b></div>
+        <p class="eyebrow">CURATED ROUTE · 3 DAYS</p>
+        <h1>도쿄의 결을<br>따라 걷는 3일</h1>
+        <p class="intro">오래된 골목에서 반짝이는 야경까지.<br>하루에 세 곳, 여유롭게 만나는 도쿄.</p>
+        <div class="route-meta" aria-label="코스 요약"><span>3일</span><i></i><span>9개 장소</span><i></i><span>걷기 좋은 코스</span></div>
+      </div>
+
+      <div class="day-tabs" role="tablist" aria-label="여행 일자">
+        <button class="selected" role="tab" aria-selected="true" data-day="0">DAY 1</button>
+        <button role="tab" aria-selected="false" data-day="1">DAY 2</button>
+        <button role="tab" aria-selected="false" data-day="2">DAY 3</button>
+      </div>
+      <div class="day-summary"><div><span id="day-label"></span><strong id="day-title"></strong></div><p id="day-transit"></p></div>
+      <div class="stops" id="stops" role="list" aria-label="여행 장소"></div>
+
+      <aside class="tip-card" id="tips"><span>LOCAL TIP</span><p><strong>스이카 한 장이면 충분해요.</strong> 지하철과 버스는 물론 편의점에서도 쓸 수 있어 동선을 끊지 않아요.</p></aside>
+      <p class="disclaimer">운영 시간과 휴무일은 방문 전 공식 정보를 확인해 주세요.</p>
+    </section>
+
+    <section class="map-panel" aria-label="도쿄 여행 지도">
+      <iframe id="travel-map" title="도쿄 여행 지도" loading="eager"></iframe>
+      <div class="map-shade" aria-hidden="true"></div>
+      <div class="map-label">TOKYO · 東京</div>
+      <div class="map-float" aria-live="polite"><span id="map-step"></span><strong id="map-name"></strong><small id="map-detail"></small></div>
+      <a class="open-map" id="open-map" href="#" target="_blank" rel="noreferrer">큰 지도에서 보기 ↗</a>
+    </section>
+  </main>
+  <script src="/main.js"></script>
+</body>
+</html>
