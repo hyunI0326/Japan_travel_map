@@ -50,8 +50,28 @@ nav a { text-decoration: none; }
 .account-copy { display: grid; gap: 2px; max-width: 150px; }
 .account-copy strong { overflow: hidden; color: var(--ink); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
 .account-copy small { color: #7d867f; font-size: 9px; font-weight: 700; }
-.sign-out-link { color: #727b75; font-size: 10px; font-weight: 800; text-decoration: underline; text-underline-offset: 3px; }
+.sign-out-link { border: 0; padding: 0; color: #727b75; background: transparent; cursor: pointer; font-size: 10px; font-weight: 800; text-decoration: underline; text-underline-offset: 3px; }
 .sign-out-link:hover { color: var(--red); }
+
+.auth-page { min-height: 100vh; display: grid; place-items: center; padding: 88px 24px 42px; background: radial-gradient(circle at 18% 8%, rgba(217, 74, 58, .12), transparent 30%), var(--paper); }
+.auth-brand { position: absolute; top: 28px; left: clamp(24px, 5vw, 72px); display: flex; align-items: center; gap: 12px; color: var(--ink); text-decoration: none; font-size: 13px; font-weight: 800; letter-spacing: .15em; }
+.auth-card { width: min(100%, 520px); padding: clamp(30px, 5vw, 54px); border: 1px solid #d6d0c4; background: rgba(255, 253, 247, .86); box-shadow: 0 24px 80px rgba(42, 49, 44, .1); }
+.auth-eyebrow { margin: 0 0 15px; color: var(--red); font-size: 10px; font-weight: 900; letter-spacing: .19em; }
+.auth-card h1 { margin: 0; font-size: clamp(40px, 6vw, 58px); line-height: 1.04; }
+.auth-intro { margin: 20px 0 30px; color: #68736d; font-size: 14px; line-height: 1.7; }
+.social-login-list { display: grid; gap: 11px; }
+.social-login { width: 100%; min-height: 54px; display: grid; grid-template-columns: 32px 1fr auto; align-items: center; gap: 12px; padding: 9px 16px; border: 1px solid transparent; border-radius: 4px; cursor: pointer; text-align: left; font-size: 13px; font-weight: 800; transition: transform .2s ease, box-shadow .2s ease, opacity .2s ease; }
+.social-login:not(:disabled):hover { transform: translateY(-1px); box-shadow: 0 9px 24px rgba(31, 46, 38, .1); }
+.social-login:disabled { cursor: not-allowed; opacity: .48; }
+.social-login.google { border-color: #d5d9dd; color: #27313a; background: white; }
+.social-login.kakao { color: #211f1f; background: #fee500; }
+.social-login.naver { color: white; background: #03c75a; }
+.provider-mark { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 50%; background: rgba(255, 255, 255, .86); color: #26332d; font-size: 13px; font-weight: 900; }
+.social-login small { font-size: 9px; font-weight: 800; }
+.provider-notice { margin: 18px 0 0; padding: 13px 15px; color: #7a817c; background: #eee9df; font-size: 11px; line-height: 1.55; }
+.auth-error { margin: 16px 0 0; color: #b63f32; font-size: 11px; font-weight: 800; }
+.auth-back { display: block; margin-top: 24px; color: #59665f; font-size: 11px; font-weight: 800; text-align: center; text-underline-offset: 4px; }
+.auth-footnote { position: absolute; bottom: 24px; margin: 0; color: #929790; font-size: 9px; text-align: center; }
 
 .route-panel { padding: 6vh clamp(28px, 5vw, 76px); overflow-y: auto; overscroll-behavior: contain; }
 .route-heading { max-width: 620px; }
@@ -121,6 +141,10 @@ h1 { margin: 16px 0 18px; font-family: Georgia, "Nanum Myeongjo", serif; font-si
   .account-control { gap: 6px; }
   .account-avatar { width: 32px; height: 32px; }
   .sign-out-link { font-size: 9px; }
+  .auth-page { padding-inline: 16px; }
+  .auth-brand { top: 20px; left: 20px; }
+  .auth-card { padding: 30px 22px; }
+  .auth-card h1 { font-size: 39px; }
   .route-panel { padding-top: 38px; }
   h1 { font-size: 43px; }
   .day-summary { align-items: flex-start; flex-direction: column; gap: 8px; }

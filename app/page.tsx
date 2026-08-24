@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useAuth } from "./auth-context";
+import { authClient } from "@/lib/auth-client";
 
 type Stop = {
   time: string;
@@ -52,7 +53,7 @@ function mapUrl(stop: Stop) {
 }
 
 export default function Home() {
-  const { user, signInPath, signOutPath } = useAuth();
+  const { user } = useAuth();
   const [day, setDay] = useState(0);
   const [stopIndex, setStopIndex] = useState(0);
   const [saved, setSaved] = useState(false);
@@ -67,10 +68,15 @@ export default function Home() {
 
   function toggleSaved() {
     if (!user) {
-      window.location.assign(signInPath);
+      window.location.assign("/login");
       return;
     }
     setSaved((value) => !value);
+  }
+
+  async function signOut() {
+    await authClient.signOut();
+    window.location.assign("/");
   }
 
   const userInitial = user?.displayName.trim().charAt(0).toUpperCase() || "M";
@@ -97,10 +103,10 @@ export default function Home() {
                   <small>로그인됨</small>
                 </span>
               </div>
-              <a className="sign-out-link" href={signOutPath}>로그아웃</a>
+              <button className="sign-out-link" type="button" onClick={signOut}>로그아웃</button>
             </div>
           ) : (
-            <a className="sign-in-link" href={signInPath}>ChatGPT로 로그인</a>
+            <a className="sign-in-link" href="/login">소셜 로그인</a>
           )}
         </nav>
       </header>
@@ -131,15 +137,17 @@ export default function Home() {
 
         <div className="stops" role="list" aria-label={`${day + 1}일차 장소`}>
           {current.stops.map((stop, index) => (
-            <button key={stop.name} className={`stop-card ${stopIndex === index ? "active" : ""}`} onClick={() => setStopIndex(index)} role="listitem" aria-label={`${stop.time} ${stop.name}, 지도에서 보기`}>
-              <span className="stop-number">{String(index + 1).padStart(2, "0")}</span>
-              <span className="stop-copy">
-                <span className="stop-time">{stop.time} · {stop.type}</span>
-                <strong>{stop.name}</strong>
-                <span className="stop-note">{stop.note}</span>
-              </span>
-              <span className="duration">{stop.duration}</span>
-            </button>
+            <div key={stop.name} role="listitem">
+              <button className={`stop-card ${stopIndex === index ? "active" : ""}`} onClick={() => setStopIndex(index)} aria-label={`${stop.time} ${stop.name}, 지도에서 보기`}>
+                <span className="stop-number">{String(index + 1).padStart(2, "0")}</span>
+                <span className="stop-copy">
+                  <span className="stop-time">{stop.time} · {stop.type}</span>
+                  <strong>{stop.name}</strong>
+                  <span className="stop-note">{stop.note}</span>
+                </span>
+                <span className="duration">{stop.duration}</span>
+              </button>
+            </div>
           ))}
         </div>
 

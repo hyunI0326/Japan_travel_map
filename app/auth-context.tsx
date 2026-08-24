@@ -9,8 +9,6 @@ export type AuthUser = {
 
 type AuthContextValue = {
   user: AuthUser | null;
-  signInPath: string;
-  signOutPath: string;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
