@@ -36,11 +36,22 @@ button:focus-visible, a:focus-visible { outline: 3px solid rgba(217, 74, 58, .45
 .brand { display: flex; align-items: center; gap: 12px; color: var(--ink); text-decoration: none; font-weight: 800; letter-spacing: .15em; font-size: 13px; }
 .brand-mark { width: 34px; height: 34px; border-radius: 50% 50% 46% 54%; display: grid; place-items: center; background: var(--red); color: white; font-family: Georgia, serif; font-size: 20px; transform: rotate(-7deg); }
 nav { display: flex; align-items: center; gap: 30px; }
-nav a { color: #66706a; text-decoration: none; font-size: 13px; font-weight: 700; transition: color .2s ease; }
-nav a:hover, nav a.active { color: var(--ink); }
+nav a { text-decoration: none; }
+.section-link { color: #66706a; font-size: 13px; font-weight: 700; transition: color .2s ease; }
+.section-link:hover, .section-link.active { color: var(--ink); }
 .save-button { min-width: 112px; border: 0; border-radius: 99px; padding: 11px 18px; color: white; background: var(--green); cursor: pointer; transition: transform .2s ease, background .2s ease; }
 .save-button:hover { transform: translateY(-1px); }
 .save-button.is-saved { background: var(--red); }
+.sign-in-link { display: inline-flex; align-items: center; min-height: 38px; padding: 0 16px; border: 1px solid rgba(23, 36, 30, .25); border-radius: 99px; color: var(--ink); background: rgba(255, 253, 247, .7); font-size: 12px; font-weight: 800; transition: background .2s ease, border-color .2s ease, transform .2s ease; }
+.sign-in-link:hover { transform: translateY(-1px); border-color: var(--green); background: #fffdf7; }
+.account-control { display: flex; align-items: center; gap: 10px; }
+.account-chip { display: flex; align-items: center; gap: 9px; min-width: 0; }
+.account-avatar { flex: 0 0 auto; width: 34px; height: 34px; display: grid; place-items: center; border-radius: 50%; color: white; background: var(--red); font-family: Georgia, serif; font-size: 15px; font-weight: 700; }
+.account-copy { display: grid; gap: 2px; max-width: 150px; }
+.account-copy strong { overflow: hidden; color: var(--ink); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.account-copy small { color: #7d867f; font-size: 9px; font-weight: 700; }
+.sign-out-link { color: #727b75; font-size: 10px; font-weight: 800; text-decoration: underline; text-underline-offset: 3px; }
+.sign-out-link:hover { color: var(--red); }
 
 .route-panel { padding: 6vh clamp(28px, 5vw, 76px); overflow-y: auto; overscroll-behavior: contain; }
 .route-heading { max-width: 620px; }
@@ -93,7 +104,8 @@ h1 { margin: 16px 0 18px; font-family: Georgia, "Nanum Myeongjo", serif; font-si
   .app-shell { grid-template-columns: 1fr; grid-template-rows: 64px auto 62vh; }
   .topbar { padding: 0 20px; }
   nav { gap: 12px; }
-  nav a { display: none; }
+  .section-link { display: none; }
+  .account-copy { display: none; }
   .route-panel { padding: 50px 24px 36px; overflow: visible; }
   .day-tabs { top: 64px; margin-inline: -24px; padding-inline: 24px; }
   h1 { font-size: 52px; }
@@ -102,6 +114,13 @@ h1 { margin: 16px 0 18px; font-family: Georgia, "Nanum Myeongjo", serif; font-si
 
 @media (max-width: 520px) {
   .brand span:last-child { display: none; }
+  .topbar { padding-inline: 14px; }
+  nav { gap: 8px; }
+  .save-button { min-width: 0; padding-inline: 12px; font-size: 11px; }
+  .sign-in-link { min-height: 34px; padding-inline: 11px; font-size: 10px; }
+  .account-control { gap: 6px; }
+  .account-avatar { width: 32px; height: 32px; }
+  .sign-out-link { font-size: 9px; }
   .route-panel { padding-top: 38px; }
   h1 { font-size: 43px; }
   .day-summary { align-items: flex-start; flex-direction: column; gap: 8px; }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useAuth } from "./auth-context";
 
 type Stop = {
   time: string;
@@ -51,6 +52,7 @@ function mapUrl(stop: Stop) {
 }
 
 export default function Home() {
+  const { user, signInPath, signOutPath } = useAuth();
   const [day, setDay] = useState(0);
   const [stopIndex, setStopIndex] = useState(0);
   const [saved, setSaved] = useState(false);
@@ -63,6 +65,16 @@ export default function Home() {
     setStopIndex(0);
   }
 
+  function toggleSaved() {
+    if (!user) {
+      window.location.assign(signInPath);
+      return;
+    }
+    setSaved((value) => !value);
+  }
+
+  const userInitial = user?.displayName.trim().charAt(0).toUpperCase() || "M";
+
   return (
     <main className="app-shell" id="top">
       <header className="topbar">
@@ -71,11 +83,25 @@ export default function Home() {
           <span>MOMOTABI</span>
         </a>
         <nav aria-label="주요 메뉴">
-          <a className="active" href="#route">여행 코스</a>
-          <a href="#tips">여행 팁</a>
-          <button className={`save-button ${saved ? "is-saved" : ""}`} onClick={() => setSaved(!saved)} aria-pressed={saved}>
-            {saved ? "저장됨 ✓" : "내 코스 저장"}
+          <a className="section-link active" href="#route">여행 코스</a>
+          <a className="section-link" href="#tips">여행 팁</a>
+          <button className={`save-button ${saved ? "is-saved" : ""}`} onClick={toggleSaved} aria-pressed={saved}>
+            {!user ? "로그인 후 저장" : saved ? "저장됨 ✓" : "내 코스 저장"}
           </button>
+          {user ? (
+            <div className="account-control">
+              <div className="account-chip" title={user.email} aria-label={`${user.displayName} 계정으로 로그인됨`}>
+                <span className="account-avatar" aria-hidden="true">{userInitial}</span>
+                <span className="account-copy">
+                  <strong>{user.displayName}</strong>
+                  <small>로그인됨</small>
+                </span>
+              </div>
+              <a className="sign-out-link" href={signOutPath}>로그아웃</a>
+            </div>
+          ) : (
+            <a className="sign-in-link" href={signInPath}>ChatGPT로 로그인</a>
+          )}
         </nav>
       </header>
 
