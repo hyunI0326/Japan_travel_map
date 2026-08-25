@@ -166,7 +166,7 @@ export default function TripPlanner({
               <button className="sign-out-link" type="button" onClick={signOut}>로그아웃</button>
             </div>
           ) : (
-            <Link className="sign-in-link" href="/login">소셜 로그인</Link>
+            <Link className="sign-in-link" href="/login">로그인</Link>
           )}
         </nav>
       </header>

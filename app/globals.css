@@ -44,7 +44,7 @@ nav a { text-decoration: none; }
 .save-button:hover:not(:disabled) { transform: translateY(-1px); }
 .save-button:disabled { cursor: wait; opacity: .7; }
 .save-button.is-saved { background: var(--red); }
-.sign-in-link { display: inline-flex; align-items: center; min-height: 38px; padding: 0 16px; border: 1px solid rgba(23, 36, 30, .25); border-radius: 99px; color: var(--ink); background: rgba(255, 253, 247, .7); font-size: 12px; font-weight: 800; transition: background .2s ease, border-color .2s ease, transform .2s ease; }
+.sign-in-link { display: inline-flex; align-items: center; min-height: 38px; padding: 0 16px; border: 1px solid rgba(23, 36, 30, .5); border-radius: 99px; color: var(--ink); background: #fffdf7; box-shadow: 0 5px 16px rgba(23, 36, 30, .07); font-size: 12px; font-weight: 800; transition: background .2s ease, border-color .2s ease, transform .2s ease; }
 .sign-in-link:hover { transform: translateY(-1px); border-color: var(--green); background: #fffdf7; }
 .account-control { display: flex; align-items: center; gap: 10px; }
 .account-chip { display: flex; align-items: center; gap: 9px; min-width: 0; }
