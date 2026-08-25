@@ -51,6 +51,19 @@ export const auth = betterAuth({
           kakao: {
             clientId: runtimeEnv.KAKAO_CLIENT_ID!,
             clientSecret: runtimeEnv.KAKAO_CLIENT_SECRET!,
+            disableDefaultScope: true,
+            scope: ["profile_nickname"],
+            mapProfileToUser: (profile) => ({
+              name:
+                profile.kakao_account?.profile?.nickname || "카카오 사용자",
+              email:
+                profile.kakao_account?.email ||
+                `${profile.id}@kakao.momotabi.invalid`,
+              emailVerified: Boolean(
+                profile.kakao_account?.is_email_valid &&
+                  profile.kakao_account?.is_email_verified,
+              ),
+            }),
           },
         }
       : {}),
