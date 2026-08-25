@@ -1,0 +1,14 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "myfirstproject",
+  "pages_build_output_dir": "./dist/pages",
+  "compatibility_date": "2026-08-25",
+  "compatibility_flags": ["nodejs_compat"],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "momotabi",
+      "database_id": "05a7d994-6b28-4e47-b4d7-428e5365d14d"
+    }
+  ]
+}

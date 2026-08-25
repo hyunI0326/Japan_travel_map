@@ -86,7 +86,9 @@ export function ensureAuthReady(requestHeaders: Headers) {
 
 export async function getSession(requestHeaders?: Headers) {
   const currentHeaders = requestHeaders ?? (await headers());
-  ensureAuthReady(currentHeaders);
+  if (!runtimeEnv.BETTER_AUTH_SECRET && !isLocalRequest(currentHeaders)) {
+    return null;
+  }
   await ensureDatabase();
   return auth.api.getSession({ headers: currentHeaders });
 }

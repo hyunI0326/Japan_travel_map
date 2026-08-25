@@ -5,7 +5,7 @@ import "./globals.css";
 
 export const dynamic = "force-dynamic";
 
-const origin = "https://momotabi-tokyo.hyunyoon2607.chatgpt.site";
+const origin = "https://joemechu.com";
 const title = "모모타비 — 취향대로 만드는 일본 여행 코스";
 const description =
   "지역과 여행 스타일을 고르면 관광지를 추천하고, 로그인한 계정에 코스를 저장해 지도에서 다시 보여주는 일본 여행 플래너.";
