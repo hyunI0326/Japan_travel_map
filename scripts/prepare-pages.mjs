@@ -1,4 +1,4 @@
-import { cp, mkdir, rm } from "node:fs/promises";
+import { cp, mkdir, rename, rm, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
 const distDirectory = resolve("dist");
@@ -14,5 +14,29 @@ await cp(clientDirectory, pagesDirectory, { recursive: true });
 await cp(serverDirectory, pagesWorkerDirectory, { recursive: true });
 await rm(resolve(pagesWorkerDirectory, "wrangler.json"), { force: true });
 await rm(viteDeployRedirect, { force: true });
+
+const workerEntry = resolve(pagesWorkerDirectory, "index.js");
+const serverWorkerEntry = resolve(pagesWorkerDirectory, "server.js");
+
+await rename(workerEntry, serverWorkerEntry);
+await writeFile(
+  workerEntry,
+  `import serverWorker from "./server.js";
+
+export default {
+  async fetch(request, env, context) {
+    if ((request.method === "GET" || request.method === "HEAD") && env.ASSETS) {
+      const assetResponse = await env.ASSETS.fetch(request);
+
+      if (assetResponse.status !== 404) {
+        return assetResponse;
+      }
+    }
+
+    return serverWorker.fetch(request, env, context);
+  },
+};
+`,
+);
 
 console.log("Prepared Cloudflare Pages output in dist/pages.");
