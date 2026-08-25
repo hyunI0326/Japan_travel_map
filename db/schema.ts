@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import {
   index,
   integer,
+  real,
   sqliteTable,
   text,
   uniqueIndex,
@@ -109,3 +110,101 @@ export const rateLimits = sqliteTable(
   },
   (table) => [uniqueIndex("rate_limit_key_unique").on(table.key)],
 );
+
+export const regions = sqliteTable("region", {
+  id: text("id").primaryKey(),
+  nameKo: text("nameKo").notNull(),
+  nameEn: text("nameEn").notNull(),
+  nameJp: text("nameJp").notNull(),
+  eyebrow: text("eyebrow").notNull(),
+  headline: text("headline").notNull(),
+  intro: text("intro").notNull(),
+  tipTitle: text("tipTitle").notNull(),
+  tipText: text("tipText").notNull(),
+  centerLat: real("centerLat").notNull(),
+  centerLon: real("centerLon").notNull(),
+});
+
+export const places = sqliteTable(
+  "place",
+  {
+    id: text("id").primaryKey(),
+    regionId: text("regionId")
+      .notNull()
+      .references(() => regions.id, { onDelete: "cascade" }),
+    dayGroup: integer("dayGroup").notNull(),
+    sortOrder: integer("sortOrder").notNull(),
+    name: text("name").notNull(),
+    category: text("category").notNull(),
+    description: text("description").notNull(),
+    suggestedTime: text("suggestedTime").notNull(),
+    durationMinutes: integer("durationMinutes").notNull(),
+    latitude: real("latitude").notNull(),
+    longitude: real("longitude").notNull(),
+    styleTags: text("styleTags").notNull(),
+  },
+  (table) => [
+    index("idx_place_region_day_order").on(
+      table.regionId,
+      table.dayGroup,
+      table.sortOrder,
+    ),
+  ],
+);
+
+export const itineraries = sqliteTable(
+  "itinerary",
+  {
+    id: text("id").primaryKey(),
+    userId: text("userId")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    regionId: text("regionId")
+      .notNull()
+      .references(() => regions.id, { onDelete: "restrict" }),
+    title: text("title").notNull(),
+    style: text("style").notNull(),
+    dayCount: integer("dayCount").notNull(),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (table) => [
+    index("idx_itinerary_user_updated").on(table.userId, table.updatedAt),
+  ],
+);
+
+export const itineraryItems = sqliteTable(
+  "itineraryItem",
+  {
+    id: text("id").primaryKey(),
+    itineraryId: text("itineraryId")
+      .notNull()
+      .references(() => itineraries.id, { onDelete: "cascade" }),
+    placeId: text("placeId")
+      .notNull()
+      .references(() => places.id, { onDelete: "restrict" }),
+    dayNumber: integer("dayNumber").notNull(),
+    position: integer("position").notNull(),
+    scheduledTime: text("scheduledTime").notNull(),
+    createdAt: createdAt(),
+  },
+  (table) => [
+    uniqueIndex("itinerary_item_slot_unique").on(
+      table.itineraryId,
+      table.dayNumber,
+      table.position,
+    ),
+    index("idx_itinerary_item_itinerary").on(table.itineraryId),
+  ],
+);
+
+export const userPreferences = sqliteTable("userPreference", {
+  userId: text("userId")
+    .primaryKey()
+    .references(() => users.id, { onDelete: "cascade" }),
+  preferredStyle: text("preferredStyle").notNull().default("balanced"),
+  lastRegionId: text("lastRegionId").references(() => regions.id, {
+    onDelete: "set null",
+  }),
+  updatedAt: updatedAt(),
+});
