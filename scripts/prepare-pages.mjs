@@ -25,7 +25,14 @@ await writeFile(
 
 export default {
   async fetch(request, env, context) {
-    if ((request.method === "GET" || request.method === "HEAD") && env.ASSETS) {
+    const pathname = new URL(request.url).pathname;
+    const isStaticAsset = pathname.startsWith("/_next/") || /\\.[a-z0-9]+$/i.test(pathname);
+
+    if (
+      (request.method === "GET" || request.method === "HEAD") &&
+      isStaticAsset &&
+      env.ASSETS
+    ) {
       const assetResponse = await env.ASSETS.fetch(request);
 
       if (assetResponse.status !== 404) {
