@@ -110,7 +110,7 @@ export default function TravelMap({
           type: "line",
           source: "momotabi-route",
           layout: { "line-cap": "round", "line-join": "round" },
-          paint: { "line-color": "#d94a3a", "line-width": 4, "line-opacity": 0.96 },
+          paint: { "line-color": "#2563eb", "line-width": 4, "line-opacity": 0.96 },
         });
         loadedRef.current = true;
         renderRoute();
