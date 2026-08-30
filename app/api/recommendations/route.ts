@@ -1,5 +1,5 @@
-import { recommendCourse } from "@/lib/travel-service";
-import { isTravelStyle, normalizeDayCount } from "@/lib/travel-types";
+import { recommendNearbyPlaces } from "@/lib/travel-service";
+import { isTravelStyle } from "@/lib/travel-types";
 
 export const dynamic = "force-dynamic";
 
@@ -7,22 +7,32 @@ export async function POST(request: Request) {
   const body = (await request.json().catch(() => null)) as {
     regionId?: unknown;
     style?: unknown;
-    dayCount?: unknown;
+    anchorPlaceIds?: unknown;
   } | null;
 
-  if (!body || typeof body.regionId !== "string" || !isTravelStyle(body.style)) {
+  if (
+    !body ||
+    typeof body.regionId !== "string" ||
+    !isTravelStyle(body.style) ||
+    !Array.isArray(body.anchorPlaceIds) ||
+    body.anchorPlaceIds.length === 0 ||
+    body.anchorPlaceIds.some((id) => typeof id !== "string")
+  ) {
     return Response.json({ error: "INVALID_REQUEST" }, { status: 400 });
   }
 
   try {
-    const course = await recommendCourse({
+    const recommendations = await recommendNearbyPlaces({
       regionId: body.regionId,
       style: body.style,
-      dayCount: normalizeDayCount(body.dayCount),
+      anchorPlaceIds: [...new Set(body.anchorPlaceIds)].slice(0, 6),
     });
-    return Response.json({ course });
+    return Response.json({ recommendations });
   } catch (error) {
-    if (error instanceof Error && error.message === "REGION_NOT_FOUND") {
+    if (
+      error instanceof Error &&
+      ["REGION_NOT_FOUND", "ANCHOR_NOT_FOUND"].includes(error.message)
+    ) {
       return Response.json({ error: "REGION_NOT_FOUND" }, { status: 404 });
     }
     throw error;

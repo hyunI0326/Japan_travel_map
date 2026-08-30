@@ -1,13 +1,20 @@
 import TripPlanner from "./trip-planner";
-import { getRegions, recommendCourse } from "@/lib/travel-service";
+import { getPlaceCatalog, getRegions, recommendCourse } from "@/lib/travel-service";
 
 export const dynamic = "force-dynamic";
 
 export default async function Home() {
-  const [regions, initialCourse] = await Promise.all([
+  const [regions, initialCourse, initialCatalog] = await Promise.all([
     getRegions(),
     recommendCourse({ regionId: "tokyo", style: "balanced", dayCount: 3 }),
+    getPlaceCatalog("tokyo"),
   ]);
 
-  return <TripPlanner regions={regions} initialCourse={initialCourse} />;
+  return (
+    <TripPlanner
+      regions={regions}
+      initialCourse={initialCourse}
+      initialCatalog={initialCatalog}
+    />
+  );
 }

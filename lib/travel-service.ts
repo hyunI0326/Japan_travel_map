@@ -1,7 +1,11 @@
 import { ensureDatabase } from "@/db/init";
 import { getD1 } from "@/db";
 import {
+  buildCustomCourse,
+  calculateDistanceKm,
   styleLabels,
+  type PlaceCatalog,
+  type PlaceRecommendation,
   type TravelCourse,
   type TravelPlace,
   type TravelRegion,
@@ -50,24 +54,105 @@ export async function getRegions(): Promise<TravelRegion[]> {
   return result.results;
 }
 
-function distanceKm(a: TravelPlace, b: TravelPlace) {
-  const earthRadius = 6371;
-  const lat1 = (a.latitude * Math.PI) / 180;
-  const lat2 = (b.latitude * Math.PI) / 180;
-  const latDelta = ((b.latitude - a.latitude) * Math.PI) / 180;
-  const lonDelta = ((b.longitude - a.longitude) * Math.PI) / 180;
-  const h =
-    Math.sin(latDelta / 2) ** 2 +
-    Math.cos(lat1) * Math.cos(lat2) * Math.sin(lonDelta / 2) ** 2;
-  return earthRadius * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
-}
-
 function dayTransit(places: TravelPlace[]) {
   const distance = places
     .slice(1)
-    .reduce((total, place, index) => total + distanceKm(places[index], place), 0);
+    .reduce(
+      (total, place, index) => total + calculateDistanceKm(places[index], place),
+      0,
+    );
   const rounded = distance < 10 ? distance.toFixed(1) : Math.round(distance).toString();
   return `직선거리 약 ${rounded}km · ${places.length}개 장소`;
+}
+
+function toTravelPlace(place: PlaceRow): TravelPlace {
+  return {
+    id: place.id,
+    name: place.name,
+    category: place.category,
+    description: place.description,
+    suggestedTime: place.suggestedTime,
+    durationMinutes: place.durationMinutes,
+    latitude: place.latitude,
+    longitude: place.longitude,
+  };
+}
+
+async function getRegionAndPlaceRows(regionId: string) {
+  await ensureDatabase();
+  const database = getD1();
+  const [region, placeResult] = await Promise.all([
+    database
+      .prepare(
+        `SELECT "id", "nameKo", "nameEn", "nameJp", "eyebrow", "headline", "intro",
+                "tipTitle", "tipText", "centerLat", "centerLon"
+         FROM "region" WHERE "id" = ? LIMIT 1`,
+      )
+      .bind(regionId)
+      .first<TravelRegion>(),
+    database
+      .prepare(
+        `SELECT "id", "regionId", "dayGroup", "sortOrder", "name", "category", "description",
+                "suggestedTime", "durationMinutes", "latitude", "longitude", "styleTags"
+         FROM "place" WHERE "regionId" = ?
+         ORDER BY "dayGroup", "sortOrder"`,
+      )
+      .bind(regionId)
+      .all<PlaceRow>(),
+  ]);
+
+  if (!region) throw new Error("REGION_NOT_FOUND");
+  return { region, placeRows: placeResult.results };
+}
+
+export async function getPlaceCatalog(regionId: string): Promise<PlaceCatalog> {
+  const { region, placeRows } = await getRegionAndPlaceRows(regionId);
+  return {
+    region,
+    mustVisits: placeRows.filter((place) => place.sortOrder === 1).map(toTravelPlace),
+    places: placeRows.map(toTravelPlace),
+  };
+}
+
+export async function recommendNearbyPlaces({
+  regionId,
+  anchorPlaceIds,
+  style,
+}: {
+  regionId: string;
+  anchorPlaceIds: string[];
+  style: TravelStyle;
+}): Promise<PlaceRecommendation[]> {
+  const { placeRows } = await getRegionAndPlaceRows(regionId);
+  const anchorSet = new Set(anchorPlaceIds);
+  const anchors = placeRows.filter((place) => anchorSet.has(place.id));
+  if (anchors.length === 0) throw new Error("ANCHOR_NOT_FOUND");
+
+  return placeRows
+    .filter((place) => !anchorSet.has(place.id))
+    .map((place) => {
+      const nearest = anchors
+        .map((anchor) => ({
+          anchor,
+          distance: calculateDistanceKm(place, anchor),
+        }))
+        .sort((a, b) => a.distance - b.distance)[0];
+      const tags = place.styleTags.split(",");
+      const styleBoost = style !== "balanced" && tags.includes(style) ? 0.8 : 0;
+      return {
+        ...place,
+        distanceKm: Number(nearest.distance.toFixed(1)),
+        nearAnchorName: nearest.anchor.name,
+        rank: nearest.distance - styleBoost + place.sortOrder * 0.03,
+      };
+    })
+    .sort((a, b) => a.rank - b.rank)
+    .slice(0, 8)
+    .map((place) => ({
+      ...toTravelPlace(place),
+      distanceKm: place.distanceKm,
+      nearAnchorName: place.nearAnchorName,
+    }));
 }
 
 function scorePlace(place: PlaceRow, style: TravelStyle) {
@@ -157,13 +242,29 @@ export async function saveCourse({
   regionId,
   style,
   dayCount,
+  placeIds,
 }: {
   userId: string;
   regionId: string;
   style: TravelStyle;
   dayCount: number;
+  placeIds?: string[];
 }) {
-  const course = await recommendCourse({ regionId, style, dayCount });
+  let course: TravelCourse;
+  if (placeIds?.length) {
+    const { region, placeRows } = await getRegionAndPlaceRows(regionId);
+    const placeMap = new Map(placeRows.map((place) => [place.id, place]));
+    const uniquePlaceIds = [...new Set(placeIds)].slice(0, 9);
+    const selectedPlaces = uniquePlaceIds.map((id) => placeMap.get(id));
+    if (selectedPlaces.some((place) => !place)) throw new Error("PLACE_NOT_FOUND");
+    course = buildCustomCourse({
+      region,
+      places: selectedPlaces.map((place) => toTravelPlace(place!)),
+      style,
+    });
+  } else {
+    course = await recommendCourse({ regionId, style, dayCount });
+  }
   const database = getD1();
   const itineraryId = crypto.randomUUID();
   const now = Date.now();
@@ -174,7 +275,16 @@ export async function saveCourse({
           ("id", "userId", "regionId", "title", "style", "dayCount", "createdAt", "updatedAt")
          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       )
-      .bind(itineraryId, userId, regionId, course.title, style, dayCount, now, now),
+      .bind(
+        itineraryId,
+        userId,
+        regionId,
+        course.title,
+        style,
+        course.dayCount,
+        now,
+        now,
+      ),
     database
       .prepare(
         `INSERT INTO "userPreference" ("userId", "preferredStyle", "lastRegionId", "updatedAt")

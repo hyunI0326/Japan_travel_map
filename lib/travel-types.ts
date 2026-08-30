@@ -26,6 +26,17 @@ export type TravelPlace = {
   longitude: number;
 };
 
+export type PlaceRecommendation = TravelPlace & {
+  distanceKm: number;
+  nearAnchorName: string;
+};
+
+export type PlaceCatalog = {
+  region: TravelRegion;
+  mustVisits: TravelPlace[];
+  places: TravelPlace[];
+};
+
 export type CourseDay = {
   dayNumber: number;
   label: string;
@@ -60,4 +71,59 @@ export function normalizeDayCount(value: unknown) {
   return Number.isInteger(dayCount) && dayCount >= 1 && dayCount <= 3
     ? dayCount
     : 3;
+}
+
+export function calculateDistanceKm(a: TravelPlace, b: TravelPlace) {
+  const earthRadius = 6371;
+  const lat1 = (a.latitude * Math.PI) / 180;
+  const lat2 = (b.latitude * Math.PI) / 180;
+  const latDelta = ((b.latitude - a.latitude) * Math.PI) / 180;
+  const lonDelta = ((b.longitude - a.longitude) * Math.PI) / 180;
+  const h =
+    Math.sin(latDelta / 2) ** 2 +
+    Math.cos(lat1) * Math.cos(lat2) * Math.sin(lonDelta / 2) ** 2;
+  return earthRadius * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
+}
+
+function routeDistanceLabel(places: TravelPlace[]) {
+  const distance = places
+    .slice(1)
+    .reduce(
+      (total, place, index) =>
+        total + calculateDistanceKm(places[index], place),
+      0,
+    );
+  const rounded = distance < 10 ? distance.toFixed(1) : Math.round(distance).toString();
+  return `예상 이동거리 약 ${rounded}km · ${places.length}개 장소`;
+}
+
+export function buildCustomCourse({
+  region,
+  places,
+  style,
+}: {
+  region: TravelRegion;
+  places: TravelPlace[];
+  style: TravelStyle;
+}): TravelCourse {
+  const selectedPlaces = places.slice(0, 9);
+  const dayCount = Math.max(1, Math.ceil(selectedPlaces.length / 3));
+  const days = Array.from({ length: dayCount }, (_, index) => {
+    const dayPlaces = selectedPlaces.slice(index * 3, index * 3 + 3);
+    return {
+      dayNumber: index + 1,
+      label: `${region.nameKo} ${index + 1}일차 · 나만의 선택`,
+      transit: routeDistanceLabel(dayPlaces),
+      places: dayPlaces,
+    };
+  });
+
+  return {
+    title: `${region.nameKo} 나만의 여행 코스`,
+    style,
+    styleLabel: styleLabels[style],
+    dayCount,
+    region,
+    days,
+  };
 }

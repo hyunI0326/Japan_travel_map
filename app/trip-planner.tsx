@@ -6,9 +6,13 @@ import { useAuth } from "./auth-context";
 import TravelMap from "./travel-map";
 import { authClient } from "@/lib/auth-client";
 import {
+  buildCustomCourse,
   styleLabels,
   travelStyles,
+  type PlaceCatalog,
+  type PlaceRecommendation,
   type TravelCourse,
+  type TravelPlace,
   type TravelRegion,
   type TravelStyle,
 } from "@/lib/travel-types";
@@ -16,27 +20,34 @@ import {
 export default function TripPlanner({
   regions,
   initialCourse,
+  initialCatalog,
 }: {
   regions: TravelRegion[];
   initialCourse: TravelCourse;
+  initialCatalog: PlaceCatalog;
 }) {
   const { user } = useAuth();
-  const [regionId, setRegionId] = useState(initialCourse.region.id);
+  const [regionId, setRegionId] = useState(initialCatalog.region.id);
+  const [catalog, setCatalog] = useState(initialCatalog);
   const [style, setStyle] = useState<TravelStyle>(initialCourse.style);
-  const [dayCount, setDayCount] = useState(initialCourse.dayCount);
-  const [course, setCourse] = useState(initialCourse);
-  const [activeDayIndex, setActiveDayIndex] = useState(0);
-  const [activePlaceId, setActivePlaceId] = useState(initialCourse.days[0].places[0].id);
+  const [mustVisitIds, setMustVisitIds] = useState<string[]>([]);
+  const [recommendations, setRecommendations] = useState<PlaceRecommendation[]>([]);
+  const [selectedPlaces, setSelectedPlaces] = useState<TravelPlace[]>([]);
+  const [activePlaceId, setActivePlaceId] = useState("");
   const [savedCourses, setSavedCourses] = useState<TravelCourse[]>([]);
+  const [catalogState, setCatalogState] = useState<"idle" | "loading" | "error">("idle");
   const [recommendationState, setRecommendationState] = useState<"idle" | "loading" | "error">("idle");
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
 
-  const activeDay = course.days[activeDayIndex] ?? course.days[0];
+  const course = useMemo(
+    () => buildCustomCourse({ region: catalog.region, places: selectedPlaces, style }),
+    [catalog.region, selectedPlaces, style],
+  );
   const activePlace =
-    activeDay.places.find((place) => place.id === activePlaceId) ?? activeDay.places[0];
+    selectedPlaces.find((place) => place.id === activePlaceId) ?? selectedPlaces[0] ?? null;
   const mapCenter = useMemo<[number, number]>(
-    () => [course.region.centerLon, course.region.centerLat],
-    [course.region.centerLat, course.region.centerLon],
+    () => [catalog.region.centerLon, catalog.region.centerLat],
+    [catalog.region.centerLat, catalog.region.centerLon],
   );
 
   useEffect(() => {
@@ -58,58 +69,129 @@ export default function TripPlanner({
     };
   }, [user]);
 
-  function showCourse(nextCourse: TravelCourse) {
-    setCourse(nextCourse);
-    setRegionId(nextCourse.region.id);
-    setStyle(nextCourse.style);
-    setDayCount(nextCourse.dayCount);
-    setActiveDayIndex(0);
-    setActivePlaceId(nextCourse.days[0].places[0].id);
-    setSaveState(nextCourse.id ? "saved" : "idle");
+  async function loadCatalog(nextRegionId: string) {
+    setRegionId(nextRegionId);
+    setCatalogState("loading");
+    setMustVisitIds([]);
+    setRecommendations([]);
+    setSelectedPlaces([]);
+    setActivePlaceId("");
+    setSaveState("idle");
+    try {
+      const response = await fetch(`/api/places?regionId=${encodeURIComponent(nextRegionId)}`);
+      if (!response.ok) throw new Error("catalog_failed");
+      const data = (await response.json()) as { catalog: PlaceCatalog };
+      setCatalog(data.catalog);
+      setCatalogState("idle");
+    } catch {
+      setCatalogState("error");
+    }
   }
 
-  async function generateRecommendation() {
+  function toggleMustVisit(place: TravelPlace) {
+    const selected = mustVisitIds.includes(place.id);
+    setMustVisitIds((current) =>
+      selected ? current.filter((id) => id !== place.id) : [...current, place.id],
+    );
+    setSelectedPlaces((current) =>
+      selected
+        ? current.filter((candidate) => candidate.id !== place.id)
+        : current.some((candidate) => candidate.id === place.id) || current.length >= 9
+          ? current
+          : [...current, place],
+    );
+    if (!selected) setActivePlaceId(place.id);
+    setRecommendations([]);
+    setRecommendationState("idle");
+    setSaveState("idle");
+  }
+
+  async function generateRecommendations() {
+    if (mustVisitIds.length === 0) return;
     setRecommendationState("loading");
     setSaveState("idle");
     try {
       const response = await fetch("/api/recommendations", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ regionId, style, dayCount }),
+        body: JSON.stringify({ regionId, style, anchorPlaceIds: mustVisitIds }),
       });
       if (!response.ok) throw new Error("recommendation_failed");
-      const data = (await response.json()) as { course: TravelCourse };
-      showCourse(data.course);
+      const data = (await response.json()) as { recommendations: PlaceRecommendation[] };
+      setRecommendations(data.recommendations);
       setRecommendationState("idle");
     } catch {
       setRecommendationState("error");
     }
   }
 
+  function toggleRecommendedPlace(place: PlaceRecommendation) {
+    const selected = selectedPlaces.some((candidate) => candidate.id === place.id);
+    setSelectedPlaces((current) =>
+      selected
+        ? current.filter((candidate) => candidate.id !== place.id)
+        : current.length >= 9
+          ? current
+          : [...current, place],
+    );
+    if (!selected) setActivePlaceId(place.id);
+    setSaveState("idle");
+  }
+
+  function removeCoursePlace(placeId: string) {
+    setSelectedPlaces((current) => current.filter((place) => place.id !== placeId));
+    setMustVisitIds((current) => current.filter((id) => id !== placeId));
+    setSaveState("idle");
+  }
+
+  async function showSavedCourse(savedCourse: TravelCourse) {
+    const places = savedCourse.days.flatMap((day) => day.places);
+    setRegionId(savedCourse.region.id);
+    setCatalogState("loading");
+    try {
+      const response = await fetch(`/api/places?regionId=${encodeURIComponent(savedCourse.region.id)}`);
+      if (!response.ok) throw new Error("catalog_failed");
+      const data = (await response.json()) as { catalog: PlaceCatalog };
+      setCatalog(data.catalog);
+      setMustVisitIds(
+        places
+          .filter((place) => data.catalog.mustVisits.some((mustVisit) => mustVisit.id === place.id))
+          .map((place) => place.id),
+      );
+      setCatalogState("idle");
+    } catch {
+      setCatalog({ region: savedCourse.region, mustVisits: [], places });
+      setMustVisitIds([]);
+      setCatalogState("error");
+    }
+    setStyle(savedCourse.style);
+    setRecommendations([]);
+    setSelectedPlaces(places);
+    setActivePlaceId(places[0]?.id ?? "");
+    setSaveState("saved");
+  }
+
   async function saveCurrentCourse() {
+    if (selectedPlaces.length === 0 || saveState === "saving") return;
     if (!user) {
       window.location.assign("/login");
       return;
     }
-    if (saveState === "saving") return;
     setSaveState("saving");
     try {
       const response = await fetch("/api/trips", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          regionId: course.region.id,
-          style: course.style,
+          regionId,
+          style,
           dayCount: course.dayCount,
+          placeIds: selectedPlaces.map((place) => place.id),
         }),
       });
       if (!response.ok) throw new Error("save_failed");
       const data = (await response.json()) as { course: TravelCourse };
-      showCourse(data.course);
-      setSavedCourses((current) => [
-        data.course,
-        ...current.filter((saved) => saved.id !== data.course.id),
-      ]);
+      setSavedCourses((current) => [data.course, ...current.filter((saved) => saved.id !== data.course.id)]);
       setSaveState("saved");
     } catch {
       setSaveState("error");
@@ -121,223 +203,103 @@ export default function TripPlanner({
     window.location.assign("/");
   }
 
-  function selectDay(index: number) {
-    const day = course.days[index];
-    setActiveDayIndex(index);
-    setActivePlaceId(day.places[0].id);
-  }
-
   const userInitial = user?.displayName.trim().charAt(0).toUpperCase() || "M";
-  const durationLabel = `${Math.max(1, Math.round(activePlace.durationMinutes / 60))}시간 추천`;
+  const durationLabel = activePlace
+    ? `${Math.max(1, Math.round(activePlace.durationMinutes / 60))}시간 추천`
+    : "";
 
   return (
     <main className="app-shell" id="top">
       <header className="topbar">
-        <a className="brand" href="#top" aria-label="모모타비 홈">
-          <span className="brand-mark">も</span>
-          <span>MOMOTABI</span>
-        </a>
+        <a className="brand" href="#top" aria-label="모모타비 홈"><span className="brand-mark">も</span><span>MOMOTABI</span></a>
         <nav aria-label="주요 메뉴">
           <a className="section-link active" href="#planner">코스 만들기</a>
           <a className="section-link" href="#saved">내 코스</a>
-          <button
-            className={`save-button ${saveState === "saved" ? "is-saved" : ""}`}
-            onClick={saveCurrentCourse}
-            type="button"
-            disabled={saveState === "saving"}
-          >
-            {!user
-              ? "로그인 후 저장"
-              : saveState === "saving"
-                ? "저장 중…"
-                : saveState === "saved"
-                  ? "저장됨 ✓"
-                  : "이 코스 저장"}
+          <button className={`save-button ${saveState === "saved" ? "is-saved" : ""}`} onClick={saveCurrentCourse} type="button" disabled={selectedPlaces.length === 0 || saveState === "saving"}>
+            {!user ? "로그인 후 저장" : saveState === "saving" ? "저장 중…" : saveState === "saved" ? "저장됨 ✓" : "이 코스 저장"}
           </button>
           {user ? (
             <div className="account-control">
-              <div className="account-chip" title={user.email} aria-label={`${user.displayName} 계정으로 로그인됨`}>
-                <span className="account-avatar" aria-hidden="true">{userInitial}</span>
-                <span className="account-copy">
-                  <strong>{user.displayName}</strong>
-                  <small>로그인됨</small>
-                </span>
-              </div>
+              <div className="account-chip" title={user.email} aria-label={`${user.displayName} 계정으로 로그인됨`}><span className="account-avatar" aria-hidden="true">{userInitial}</span><span className="account-copy"><strong>{user.displayName}</strong><small>로그인됨</small></span></div>
               <button className="sign-out-link" type="button" onClick={signOut}>로그아웃</button>
             </div>
-          ) : (
-            <Link className="sign-in-link" href="/login">로그인</Link>
-          )}
+          ) : <Link className="sign-in-link" href="/login">로그인</Link>}
         </nav>
       </header>
 
       <section className="route-panel" id="planner">
         <div className="route-heading">
-          <div className="city-chip">
-            <span className="city-dot" /> {course.region.nameEn} <b>{course.region.nameJp}</b>
-          </div>
-          <p className="eyebrow">{course.region.eyebrow} · PERSONAL ROUTE</p>
-          <h1>{course.region.headline}</h1>
-          <p className="intro">{course.region.intro}</p>
-          <div className="route-meta" aria-label="코스 요약">
-            <span>{course.dayCount}일</span><i />
-            <span>{course.days.reduce((sum, day) => sum + day.places.length, 0)}개 장소</span><i />
-            <span>{course.styleLabel}</span>
-          </div>
+          <div className="city-chip"><span className="city-dot" /> {catalog.region.nameEn} <b>{catalog.region.nameJp}</b></div>
+          <p className="eyebrow">BUILD YOUR OWN ROUTE · {catalog.region.eyebrow}</p>
+          <h1>꼭 가고 싶은 곳부터<br />나만의 코스로</h1>
+          <p className="intro">필수 관광지를 고르면 가까이 함께 둘러보기 좋은 장소를 추천해 드려요.</p>
+          <div className="route-meta" aria-label="코스 요약"><span>{selectedPlaces.length}개 장소</span><i /><span>{course.dayCount}일 예상</span><i /><span>{styleLabels[style]}</span></div>
         </div>
 
-        <section className="planner-card" aria-labelledby="planner-title">
-          <div className="planner-title-row">
-            <div>
-              <span>MAKE YOUR ROUTE</span>
-              <h2 id="planner-title">어디로 떠나볼까요?</h2>
-            </div>
-            <strong>01 — 03</strong>
-          </div>
-          <div className="planner-field">
-            <span className="planner-label">여행 지역</span>
+        <section className="planner-card guided-planner" aria-labelledby="planner-title">
+          <div className="planner-title-row"><div><span>STEP BY STEP</span><h2 id="planner-title">여행 코스를 만들어 볼까요?</h2></div><strong>01 — 03</strong></div>
+          <div className="planner-step">
+            <div className="step-heading"><b>01</b><div><span>여행 지역</span><h3>어디로 떠나나요?</h3></div></div>
             <div className="region-switcher" role="group" aria-label="여행 지역 선택">
-              {regions.map((region) => (
-                <button
-                  key={region.id}
-                  type="button"
-                  className={regionId === region.id ? "selected" : ""}
-                  aria-pressed={regionId === region.id}
-                  onClick={() => setRegionId(region.id)}
-                >
-                  {region.nameKo}<small>{region.nameEn}</small>
-                </button>
-              ))}
+              {regions.map((region) => <button key={region.id} type="button" className={regionId === region.id ? "selected" : ""} aria-pressed={regionId === region.id} onClick={() => loadCatalog(region.id)} disabled={catalogState === "loading"}>{region.nameKo}<small>{region.nameEn}</small></button>)}
+            </div>
+            {catalogState === "error" && <p className="inline-error" role="alert">지역 관광지를 불러오지 못했어요.</p>}
+          </div>
+
+          <div className="planner-step">
+            <div className="step-heading"><b>02</b><div><span>필수 관광지</span><h3>놓치고 싶지 않은 곳을 골라주세요</h3></div></div>
+            <div className="must-visit-grid" role="group" aria-label="필수 관광지 선택">
+              {catalog.mustVisits.map((place) => {
+                const selected = mustVisitIds.includes(place.id);
+                return <button key={place.id} type="button" className={selected ? "selected" : ""} aria-pressed={selected} onClick={() => toggleMustVisit(place)}><span>{selected ? "선택됨" : "필수 명소"}</span><strong>{place.name}</strong><small>{place.category} · 약 {Math.max(1, Math.round(place.durationMinutes / 60))}시간</small></button>;
+              })}
             </div>
           </div>
-          <div className="planner-options">
-            <div className="planner-field">
-              <span className="planner-label">여행 스타일</span>
-              <div className="style-switcher" role="group" aria-label="여행 스타일 선택">
-                {travelStyles.map((item) => (
-                  <button
-                    key={item}
-                    type="button"
-                    className={style === item ? "selected" : ""}
-                    aria-pressed={style === item}
-                    onClick={() => setStyle(item)}
-                  >
-                    {styleLabels[item]}
-                  </button>
-                ))}
+
+          <div className="planner-step">
+            <div className="step-heading"><b>03</b><div><span>근교 추천</span><h3>선택한 곳 근처를 함께 둘러봐요</h3></div></div>
+            <div className="style-switcher compact" role="group" aria-label="여행 스타일 선택">
+              {travelStyles.map((item) => <button key={item} type="button" className={style === item ? "selected" : ""} aria-pressed={style === item} onClick={() => { setStyle(item); setRecommendations([]); }}>{styleLabels[item]}</button>)}
+            </div>
+            <button className="recommend-button" type="button" onClick={generateRecommendations} disabled={mustVisitIds.length === 0 || recommendationState === "loading"}><span>{recommendationState === "loading" ? "가까운 장소를 찾는 중…" : mustVisitIds.length === 0 ? "먼저 필수 관광지를 선택해 주세요" : "근교 관광지 추천받기"}</span><b aria-hidden="true">→</b></button>
+            {recommendationState === "error" && <p className="inline-error" role="alert">근교 추천을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.</p>}
+            {recommendations.length > 0 && (
+              <div className="nearby-list" aria-label="근교 추천 관광지">
+                {recommendations.map((place) => {
+                  const selected = selectedPlaces.some((candidate) => candidate.id === place.id);
+                  return <article key={place.id} className={selected ? "selected" : ""}><div><span>{place.nearAnchorName}에서 {place.distanceKm}km</span><strong>{place.name}</strong><small>{place.category} · {place.description}</small></div><button type="button" onClick={() => toggleRecommendedPlace(place)} aria-label={`${place.name} ${selected ? "코스에서 빼기" : "코스에 담기"}`}>{selected ? "담김 ✓" : "+ 담기"}</button></article>;
+                })}
               </div>
-            </div>
-            <label className="day-count-field">
-              <span className="planner-label">여행 기간</span>
-              <select value={dayCount} onChange={(event) => setDayCount(Number(event.target.value))}>
-                <option value={1}>1일</option>
-                <option value={2}>2일</option>
-                <option value={3}>3일</option>
-              </select>
-            </label>
+            )}
           </div>
-          <button className="recommend-button" type="button" onClick={generateRecommendation} disabled={recommendationState === "loading"}>
-            <span>{recommendationState === "loading" ? "코스를 고르는 중…" : "이 조건으로 코스 추천받기"}</span>
-            <b aria-hidden="true">→</b>
-          </button>
-          {recommendationState === "error" && <p className="inline-error" role="alert">추천 코스를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.</p>}
         </section>
 
-        <div className="day-tabs" role="tablist" aria-label="여행 일자">
-          {course.days.map((day, index) => (
-            <button
-              key={day.dayNumber}
-              className={activeDayIndex === index ? "selected" : ""}
-              role="tab"
-              aria-selected={activeDayIndex === index}
-              onClick={() => selectDay(index)}
-            >
-              DAY {day.dayNumber}
-            </button>
-          ))}
-        </div>
-
-        <div className="day-summary">
-          <div><span>{activeDay.label}</span><strong>{course.title}</strong></div>
-          <p>{activeDay.transit}</p>
-        </div>
-
-        <div className="stops" role="list" aria-label={`${activeDay.dayNumber}일차 추천 장소`}>
-          {activeDay.places.map((place, index) => (
-            <div key={place.id} role="listitem">
-              <button
-                className={`stop-card ${activePlace.id === place.id ? "active" : ""}`}
-                onClick={() => setActivePlaceId(place.id)}
-                aria-label={`${place.suggestedTime} ${place.name}, 지도에서 보기`}
-              >
-                <span className="stop-number">{String(index + 1).padStart(2, "0")}</span>
-                <span className="stop-copy">
-                  <span className="stop-time">{place.suggestedTime} · {place.category}</span>
-                  <strong>{place.name}</strong>
-                  <span className="stop-note">{place.description}</span>
-                </span>
-                <span className="duration">{Math.max(1, Math.round(place.durationMinutes / 60))}H</span>
-              </button>
-            </div>
-          ))}
-        </div>
-
-        <section className="saved-courses" id="saved" aria-labelledby="saved-title">
-          <div className="saved-heading">
-            <div><span>MY ROUTES</span><h2 id="saved-title">저장한 코스</h2></div>
-            {user && <small>{savedCourses.length}개 저장됨</small>}
-          </div>
-          {!user ? (
-            <p className="saved-empty">로그인하면 만든 코스를 계정에 저장하고 언제든 다시 지도에서 볼 수 있어요.</p>
-          ) : savedCourses.length === 0 ? (
-            <p className="saved-empty">아직 저장한 코스가 없어요. 마음에 드는 추천을 저장해 보세요.</p>
-          ) : (
-            <div className="saved-list">
-              {savedCourses.map((saved) => (
-                <button key={saved.id} type="button" onClick={() => showCourse(saved)} className={course.id === saved.id ? "active" : ""}>
-                  <span>{saved.region.nameKo} · {saved.dayCount}일</span>
-                  <strong>{saved.title}</strong>
-                  <small>{saved.styleLabel} · 지도에서 다시 보기 →</small>
-                </button>
-              ))}
+        <section className="course-builder" aria-labelledby="course-title">
+          <div className="saved-heading"><div><span>MY ROUTE</span><h2 id="course-title">내 여행 코스</h2></div><small>{selectedPlaces.length}/9개 장소</small></div>
+          {selectedPlaces.length === 0 ? <p className="saved-empty">필수 관광지를 선택하면 지도와 코스에 바로 표시됩니다.</p> : (
+            <div className="course-place-list" role="list" aria-label="내 여행 코스에 담긴 관광지">
+              {selectedPlaces.map((place, index) => <div key={place.id} className={place.id === activePlace?.id ? "active" : ""} role="listitem"><button className="course-place-main" type="button" onClick={() => setActivePlaceId(place.id)}><span>{String(index + 1).padStart(2, "0")}</span><div><small>{place.category}</small><strong>{place.name}</strong></div></button><button className="course-place-remove" type="button" onClick={() => removeCoursePlace(place.id)} aria-label={`${place.name} 코스에서 빼기`}>×</button></div>)}
             </div>
           )}
           {saveState === "error" && <p className="inline-error" role="alert">코스를 저장하지 못했어요. 로그인 상태를 확인해 주세요.</p>}
         </section>
 
-        <aside className="tip-card" id="tips">
-          <span>LOCAL TIP</span>
-          <p><strong>{course.region.tipTitle}</strong> {course.region.tipText}</p>
-        </aside>
-        <p className="disclaimer">운영 시간과 휴무일은 방문 전 공식 정보를 확인해 주세요.</p>
+        <section className="saved-courses" id="saved" aria-labelledby="saved-title">
+          <div className="saved-heading"><div><span>SAVED ROUTES</span><h2 id="saved-title">저장한 코스</h2></div>{user && <small>{savedCourses.length}개 저장됨</small>}</div>
+          {!user ? <p className="saved-empty">로그인하면 직접 담은 관광지와 순서를 계정에 저장할 수 있어요.</p> : savedCourses.length === 0 ? <p className="saved-empty">아직 저장한 코스가 없어요. 관광지를 담고 첫 코스를 저장해 보세요.</p> : (
+            <div className="saved-list">{savedCourses.map((saved) => <button key={saved.id} type="button" onClick={() => showSavedCourse(saved)}><span>{saved.region.nameKo} · {saved.days.flatMap((day) => day.places).length}곳</span><strong>{saved.title}</strong><small>지도에서 다시 보기 →</small></button>)}</div>
+          )}
+        </section>
+        <aside className="tip-card" id="tips"><span>LOCAL TIP</span><p><strong>{catalog.region.tipTitle}</strong> {catalog.region.tipText}</p></aside>
+        <p className="disclaimer">거리 추천은 관광지 좌표의 직선거리를 기준으로 하며 실제 이동 시간과 다를 수 있어요.</p>
       </section>
 
-      <section className="map-panel" aria-label={`${course.region.nameKo} 추천 여행 지도`}>
-        <TravelMap
-          places={activeDay.places}
-          activePlaceId={activePlace.id}
-          center={mapCenter}
-          onSelect={setActivePlaceId}
-        />
+      <section className="map-panel" aria-label={`${catalog.region.nameKo} 내 여행 코스 지도`}>
+        <TravelMap places={selectedPlaces} activePlaceId={activePlace?.id ?? ""} center={mapCenter} onSelect={setActivePlaceId} />
         <div className="map-shade" aria-hidden="true" />
-        <div className="map-label">{course.region.nameKo} · {activeDay.dayNumber}일차 코스</div>
-        <div className="map-legend" aria-label="지도 범례">
-          <span><i /> 추천 이동선</span><span><b>01</b> 방문 순서</span>
-        </div>
-        <div className="map-float" aria-live="polite">
-          <span>DAY {activeDay.dayNumber} · STOP {String(activeDay.places.indexOf(activePlace) + 1).padStart(2, "0")}</span>
-          <strong>{activePlace.name}</strong>
-          <small>{activePlace.suggestedTime} 도착 · {durationLabel}</small>
-        </div>
-        <a
-          className="open-map"
-          href={`https://www.openstreetmap.org/?mlat=${activePlace.latitude}&mlon=${activePlace.longitude}#map=16/${activePlace.latitude}/${activePlace.longitude}`}
-          target="_blank"
-          rel="noreferrer"
-          aria-label={`${activePlace.name} 큰 지도 열기`}
-        >
-          큰 지도에서 보기 ↗
-        </a>
+        <div className="map-label">{catalog.region.nameKo} · 내 코스 {selectedPlaces.length}곳</div>
+        <div className="map-legend" aria-label="지도 범례"><span><i /> 내 이동 동선</span><span><b>01</b> 방문 순서</span></div>
+        {activePlace ? <><div className="map-float" aria-live="polite"><span>MY ROUTE · STOP {String(selectedPlaces.indexOf(activePlace) + 1).padStart(2, "0")}</span><strong>{activePlace.name}</strong><small>{activePlace.suggestedTime} 추천 · {durationLabel}</small></div><a className="open-map" href={`https://www.openstreetmap.org/?mlat=${activePlace.latitude}&mlon=${activePlace.longitude}#map=16/${activePlace.latitude}/${activePlace.longitude}`} target="_blank" rel="noreferrer" aria-label={`${activePlace.name} 큰 지도 열기`}>큰 지도에서 보기 ↗</a></> : <div className="map-empty"><span>YOUR ROUTE MAP</span><strong>관광지를 선택하면<br />여기에 코스가 그려져요.</strong><small>선택한 순서대로 번호와 이동선이 표시됩니다.</small></div>}
       </section>
     </main>
   );
