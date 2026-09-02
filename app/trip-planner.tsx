@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "./auth-context";
 import TravelMap from "./travel-map";
@@ -223,7 +222,7 @@ export default function TripPlanner({
               <div className="account-chip" title={user.email} aria-label={`${user.displayName} 계정으로 로그인됨`}><span className="account-avatar" aria-hidden="true">{userInitial}</span><span className="account-copy"><strong>{user.displayName}</strong><small>로그인됨</small></span></div>
               <button className="sign-out-link" type="button" onClick={signOut}>로그아웃</button>
             </div>
-          ) : <Link className="sign-in-link" href="/login">로그인</Link>}
+          ) : <a className="sign-in-link" href="/login">로그인</a>}
         </nav>
       </header>
 
