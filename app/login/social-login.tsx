@@ -16,6 +16,12 @@ const providerLabels: Record<Provider, string> = {
   naver: "네이버로 계속하기",
 };
 
+const providerMarks: Record<Provider, string> = {
+  google: "G",
+  kakao: "K",
+  naver: "N",
+};
+
 export default function SocialLogin({ providers }: SocialLoginProps) {
   const [pendingProvider, setPendingProvider] = useState<Provider | null>(null);
   const [error, setError] = useState("");
@@ -40,14 +46,16 @@ export default function SocialLogin({ providers }: SocialLoginProps) {
 
   return (
     <section className="auth-card" aria-labelledby="auth-title">
-      <p className="auth-eyebrow">WELCOME BACK, TRAVELER</p>
+      <p className="auth-eyebrow"><span aria-hidden="true" /> WELCOME BACK</p>
       <h1 id="auth-title">
-        여행을 이어갈
+        나만의 일본 여행,
         <br />
-        계정을 선택하세요.
+        여기서 이어가세요.
       </h1>
       <p className="auth-intro">
-        자주 사용하는 계정으로 빠르고 안전하게 로그인할 수 있어요.
+        저장한 코스와 찜한 장소를 다시 만나보세요.
+        <br />
+        가입 없이 소셜 계정으로 바로 시작할 수 있어요.
       </p>
 
       <div className="social-login-list" aria-label="소셜 로그인">
@@ -64,12 +72,16 @@ export default function SocialLogin({ providers }: SocialLoginProps) {
               aria-describedby={unavailable ? `${provider}-status` : undefined}
             >
               <span className="provider-mark" aria-hidden="true">
-                {provider === "google" ? "G" : provider === "kakao" ? "K" : "N"}
+                {providerMarks[provider]}
               </span>
-              <span>{pending ? "연결 중…" : providerLabels[provider]}</span>
+              <span className="provider-label">
+                {pending ? "계정에 연결하는 중…" : providerLabels[provider]}
+              </span>
               {unavailable && (
-                <small id={`${provider}-status`}>연동 준비 중</small>
+                <small id={`${provider}-status`}>준비 중</small>
               )}
+              {!unavailable && !pending && <span className="provider-arrow" aria-hidden="true">→</span>}
+              {pending && <span className="auth-spinner" aria-hidden="true" />}
             </button>
           );
         })}
@@ -77,11 +89,19 @@ export default function SocialLogin({ providers }: SocialLoginProps) {
 
       {!hasAvailableProvider && (
         <p className="provider-notice" role="status">
-          로그인 제공자 설정이 완료되면 버튼이 활성화됩니다.
+          지금은 로그인 연결을 준비하고 있어요. 잠시 후 다시 확인해 주세요.
         </p>
       )}
       {error && <p className="auth-error" role="alert">{error}</p>}
-      <Link className="auth-back" href="/">로그인 없이 둘러보기</Link>
+      <div className="auth-divider" aria-hidden="true"><span>또는</span></div>
+      <Link className="auth-back" href="/">
+        로그인 없이 먼저 둘러보기 <span aria-hidden="true">→</span>
+      </Link>
+
+      <div className="auth-security-note">
+        <span aria-hidden="true">✓</span>
+        <p><strong>안전한 소셜 로그인</strong>모모타비는 로그인 제공자의 비밀번호를 저장하지 않아요.</p>
+      </div>
     </section>
   );
 }
