@@ -309,7 +309,7 @@ export default function TripPlanner({
             <div className="step-heading">
               <b>{stepThreeUnlocked ? "✓" : "02"}</b>
               <div><span>필수 관광지</span><h3>놓치고 싶지 않은 곳을 골라주세요</h3></div>
-              <small className="step-state">{!stepTwoUnlocked ? "1단계 선택 후 열림" : mustVisitIds.length > 0 ? `${mustVisitIds.length}곳 선택됨` : "하나 이상 골라주세요"}</small>
+              <small className="step-state">{!stepTwoUnlocked ? "1단계 선택 후 열림" : mustVisitIds.length > 0 ? `${mustVisitIds.length}/${catalog.mustVisits.length}곳 선택됨` : `${catalog.mustVisits.length}곳 중 골라주세요`}</small>
             </div>
             {!stepTwoUnlocked ? (
               <div className="step-locked-message"><span aria-hidden="true">02</span><p>먼저 여행 지역을 선택하면<br />필수 관광지 목록이 열려요.</p></div>

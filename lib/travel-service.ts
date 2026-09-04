@@ -1,5 +1,6 @@
 import { ensureDatabase } from "@/db/init";
 import { getD1 } from "@/db";
+import { mustVisitPlaceIdsByRegion } from "@/db/travel-seed";
 import { searchGoogleNearbyPlaces } from "@/lib/google-places";
 import {
   buildCustomCourse,
@@ -108,9 +109,16 @@ async function getRegionAndPlaceRows(regionId: string) {
 
 export async function getPlaceCatalog(regionId: string): Promise<PlaceCatalog> {
   const { region, placeRows } = await getRegionAndPlaceRows(regionId);
+  const placeMap = new Map(placeRows.map((place) => [place.id, place]));
+  const curatedMustVisits = (mustVisitPlaceIdsByRegion[regionId] ?? [])
+    .map((id) => placeMap.get(id))
+    .filter((place): place is PlaceRow => Boolean(place));
   return {
     region,
-    mustVisits: placeRows.filter((place) => place.sortOrder === 1).map(toTravelPlace),
+    mustVisits: (curatedMustVisits.length > 0
+      ? curatedMustVisits
+      : placeRows.filter((place) => place.sortOrder === 1)
+    ).map(toTravelPlace),
     places: placeRows.map(toTravelPlace),
   };
 }
