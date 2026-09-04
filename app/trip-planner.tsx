@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "./auth-context";
 import TravelMap from "./travel-map";
 import { authClient } from "@/lib/auth-client";
@@ -30,6 +30,7 @@ export default function TripPlanner({
   const { user } = useAuth();
   const [regionId, setRegionId] = useState(initialCatalog.region.id);
   const [catalog, setCatalog] = useState(initialCatalog);
+  const [hasChosenRegion, setHasChosenRegion] = useState(false);
   const [style, setStyle] = useState<TravelStyle>(initialCourse.style);
   const [mustVisitIds, setMustVisitIds] = useState<string[]>([]);
   const [recommendations, setRecommendations] = useState<PlaceRecommendation[]>([]);
@@ -42,6 +43,8 @@ export default function TripPlanner({
   const [catalogState, setCatalogState] = useState<"idle" | "loading" | "error">("idle");
   const [recommendationState, setRecommendationState] = useState<"idle" | "loading" | "error">("idle");
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const stepTwoRef = useRef<HTMLDivElement>(null);
+  const stepThreeRef = useRef<HTMLDivElement>(null);
 
   const course = useMemo(
     () => buildCustomCourse({ region: catalog.region, places: selectedPlaces, style }),
@@ -53,6 +56,9 @@ export default function TripPlanner({
     () => [catalog.region.centerLon, catalog.region.centerLat],
     [catalog.region.centerLat, catalog.region.centerLon],
   );
+  const stepTwoUnlocked = hasChosenRegion;
+  const stepThreeUnlocked = mustVisitIds.length > 0;
+  const currentStep = !hasChosenRegion ? 1 : !stepThreeUnlocked ? 2 : 3;
 
   useEffect(() => {
     if (!user) return;
@@ -74,20 +80,37 @@ export default function TripPlanner({
   }, [user]);
 
   async function loadCatalog(nextRegionId: string) {
+    if (hasChosenRegion && nextRegionId === regionId) return;
+
+    setHasChosenRegion(true);
     setRegionId(nextRegionId);
-    setCatalogState("loading");
     setMustVisitIds([]);
     setRecommendations([]);
     setRecommendationProvider(null);
     setSelectedPlaces([]);
     setActivePlaceId("");
     setSaveState("idle");
+
+    if (nextRegionId === catalog.region.id) {
+      setCatalogState("idle");
+      window.setTimeout(
+        () => stepTwoRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }),
+        180,
+      );
+      return;
+    }
+
+    setCatalogState("loading");
     try {
       const response = await fetch(`/api/places?regionId=${encodeURIComponent(nextRegionId)}`);
       if (!response.ok) throw new Error("catalog_failed");
       const data = (await response.json()) as { catalog: PlaceCatalog };
       setCatalog(data.catalog);
       setCatalogState("idle");
+      window.setTimeout(
+        () => stepTwoRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }),
+        180,
+      );
     } catch {
       setCatalogState("error");
     }
@@ -95,6 +118,7 @@ export default function TripPlanner({
 
   function toggleMustVisit(place: TravelPlace) {
     const selected = mustVisitIds.includes(place.id);
+    const unlocksNextStep = !selected && mustVisitIds.length === 0;
     setMustVisitIds((current) =>
       selected ? current.filter((id) => id !== place.id) : [...current, place.id],
     );
@@ -110,6 +134,12 @@ export default function TripPlanner({
     setRecommendationProvider(null);
     setRecommendationState("idle");
     setSaveState("idle");
+    if (unlocksNextStep) {
+      window.setTimeout(
+        () => stepThreeRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }),
+        220,
+      );
+    }
   }
 
   async function generateRecommendations() {
@@ -151,11 +181,17 @@ export default function TripPlanner({
   function removeCoursePlace(placeId: string) {
     setSelectedPlaces((current) => current.filter((place) => place.id !== placeId));
     setMustVisitIds((current) => current.filter((id) => id !== placeId));
+    if (mustVisitIds.includes(placeId)) {
+      setRecommendations([]);
+      setRecommendationProvider(null);
+      setRecommendationState("idle");
+    }
     setSaveState("idle");
   }
 
   async function showSavedCourse(savedCourse: TravelCourse) {
     const places = savedCourse.days.flatMap((day) => day.places);
+    setHasChosenRegion(true);
     setRegionId(savedCourse.region.id);
     setCatalogState("loading");
     try {
@@ -255,43 +291,84 @@ export default function TripPlanner({
         </div>
 
         <section className="planner-card guided-planner" aria-labelledby="planner-title">
-          <div className="planner-title-row"><div><span>STEP BY STEP</span><h2 id="planner-title">여행 코스를 만들어 볼까요?</h2></div><strong>01 — 03</strong></div>
-          <div className="planner-step">
-            <div className="step-heading"><b>01</b><div><span>여행 지역</span><h3>어디로 떠나나요?</h3></div></div>
+          <div className="planner-title-row"><div><span>STEP BY STEP</span><h2 id="planner-title">여행 코스를 만들어 볼까요?</h2></div><strong>{String(currentStep).padStart(2, "0")} — 03</strong></div>
+
+          <div className={`planner-step ${hasChosenRegion ? "is-complete" : "is-active"}`}>
+            <div className="step-heading">
+              <b>{hasChosenRegion ? "✓" : "01"}</b>
+              <div><span>여행 지역</span><h3>어디로 떠나나요?</h3></div>
+              <small className="step-state">{hasChosenRegion ? `${catalog.region.nameKo} 선택됨` : "지금 선택해 주세요"}</small>
+            </div>
             <div className="region-switcher" role="group" aria-label="여행 지역 선택">
-              {regions.map((region) => <button key={region.id} type="button" className={regionId === region.id ? "selected" : ""} aria-pressed={regionId === region.id} onClick={() => loadCatalog(region.id)} disabled={catalogState === "loading"}>{region.nameKo}<small>{region.nameEn}</small></button>)}
+              {regions.map((region) => <button key={region.id} type="button" className={hasChosenRegion && regionId === region.id ? "selected" : ""} aria-pressed={hasChosenRegion && regionId === region.id} onClick={() => loadCatalog(region.id)} disabled={catalogState === "loading"}>{region.nameKo}<small>{region.nameEn}</small></button>)}
             </div>
             {catalogState === "error" && <p className="inline-error" role="alert">지역 관광지를 불러오지 못했어요.</p>}
           </div>
 
-          <div className="planner-step">
-            <div className="step-heading"><b>02</b><div><span>필수 관광지</span><h3>놓치고 싶지 않은 곳을 골라주세요</h3></div></div>
-            <div className="must-visit-grid" role="group" aria-label="필수 관광지 선택">
-              {catalog.mustVisits.map((place) => {
-                const selected = mustVisitIds.includes(place.id);
-                return <button key={place.id} type="button" className={selected ? "selected" : ""} aria-pressed={selected} onClick={() => toggleMustVisit(place)}><span>{selected ? "선택됨" : "필수 명소"}</span><strong>{place.name}</strong><small>{place.category} · 약 {Math.max(1, Math.round(place.durationMinutes / 60))}시간</small></button>;
-              })}
+          <div ref={stepTwoRef} className={`planner-step ${!stepTwoUnlocked ? "is-locked" : stepThreeUnlocked ? "is-complete" : "is-active"}`} aria-disabled={!stepTwoUnlocked}>
+            <div className="step-heading">
+              <b>{stepThreeUnlocked ? "✓" : "02"}</b>
+              <div><span>필수 관광지</span><h3>놓치고 싶지 않은 곳을 골라주세요</h3></div>
+              <small className="step-state">{!stepTwoUnlocked ? "1단계 선택 후 열림" : mustVisitIds.length > 0 ? `${mustVisitIds.length}곳 선택됨` : "하나 이상 골라주세요"}</small>
             </div>
+            {!stepTwoUnlocked ? (
+              <div className="step-locked-message"><span aria-hidden="true">02</span><p>먼저 여행 지역을 선택하면<br />필수 관광지 목록이 열려요.</p></div>
+            ) : (
+              <div className="step-reveal">
+                {catalogState === "loading" ? (
+                  <div className="step-loading" role="status"><i /><span>이 지역의 필수 관광지를 불러오고 있어요.</span></div>
+                ) : catalogState === "error" ? (
+                  <p className="inline-error" role="alert">필수 관광지 목록을 불러오지 못했어요. 지역을 다시 선택해 주세요.</p>
+                ) : (
+                  <div className="must-visit-list" role="group" aria-label="필수 관광지 선택">
+                    {catalog.mustVisits.map((place, index) => {
+                      const selected = mustVisitIds.includes(place.id);
+                      return (
+                        <article key={place.id} className={selected ? "selected" : ""} style={{ animationDelay: `${index * 55}ms` }}>
+                          <div>
+                            <span>{selected ? "코스에 포함됨" : place.category}</span>
+                            <strong>{place.name}</strong>
+                            <small>{place.description}</small>
+                            <em>약 {Math.max(1, Math.round(place.durationMinutes / 60))}시간 · {place.suggestedTime} 추천</em>
+                          </div>
+                          <button type="button" aria-pressed={selected} onClick={() => toggleMustVisit(place)} aria-label={`${place.name} ${selected ? "선택 해제" : "선택"}`}>{selected ? "선택됨 ✓" : "+ 선택"}</button>
+                        </article>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
-          <div className="planner-step">
-            <div className="step-heading"><b>03</b><div><span>근교 추천</span><h3>선택한 곳 근처를 함께 둘러봐요</h3></div></div>
-            <div className="style-switcher compact" role="group" aria-label="여행 스타일 선택">
-              {travelStyles.map((item) => <button key={item} type="button" className={style === item ? "selected" : ""} aria-pressed={style === item} onClick={() => { setStyle(item); setRecommendations([]); setRecommendationProvider(null); }}>{styleLabels[item]}</button>)}
+          <div ref={stepThreeRef} className={`planner-step ${stepThreeUnlocked ? "is-active" : "is-locked"}`} aria-disabled={!stepThreeUnlocked}>
+            <div className="step-heading">
+              <b>03</b>
+              <div><span>근교 추천</span><h3>선택한 곳 근처를 함께 둘러봐요</h3></div>
+              <small className="step-state">{stepThreeUnlocked ? styleLabels[style] : "2단계 선택 후 열림"}</small>
             </div>
-            <button className="recommend-button" type="button" onClick={generateRecommendations} disabled={mustVisitIds.length === 0 || recommendationState === "loading"}><span>{recommendationState === "loading" ? "가까운 장소를 찾는 중…" : mustVisitIds.length === 0 ? "먼저 필수 관광지를 선택해 주세요" : "근교 관광지 추천받기"}</span><b aria-hidden="true">→</b></button>
-            {recommendationState === "error" && <p className="inline-error" role="alert">근교 추천을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.</p>}
-            {recommendations.length > 0 && (
-              <div className="nearby-list" aria-label="근교 추천 관광지">
-                {recommendations.map((place) => {
-                  const selected = selectedPlaces.some((candidate) => candidate.id === place.id);
-                  return <article key={place.id} className={selected ? "selected" : ""}><div><span>{place.nearAnchorName}에서 {place.distanceKm}km</span><strong>{place.name}</strong><small>{place.category} · {place.description}</small></div><button type="button" onClick={() => toggleRecommendedPlace(place)} aria-label={`${place.name} ${selected ? "코스에서 빼기" : "코스에 담기"}`}>{selected ? "담김 ✓" : "+ 담기"}</button></article>;
-                })}
-                <p className={`places-source ${recommendationProvider === "google" ? "is-google" : ""}`}>
-                  {recommendationProvider === "google"
-                    ? "Google Maps의 최신 장소 정보를 바탕으로 추천했어요."
-                    : "Google Places를 사용할 수 없어 저장된 관광지 목록으로 추천했어요."}
-                </p>
+            {!stepThreeUnlocked ? (
+              <div className="step-locked-message"><span aria-hidden="true">03</span><p>필수 관광지를 하나 이상 선택하면<br />근교 추천 설정이 열려요.</p></div>
+            ) : (
+              <div className="step-reveal">
+                <div className="style-switcher compact" role="group" aria-label="여행 스타일 선택">
+                  {travelStyles.map((item) => <button key={item} type="button" className={style === item ? "selected" : ""} aria-pressed={style === item} onClick={() => { setStyle(item); setRecommendations([]); setRecommendationProvider(null); }}>{styleLabels[item]}</button>)}
+                </div>
+                <button className="recommend-button" type="button" onClick={generateRecommendations} disabled={recommendationState === "loading"}><span>{recommendationState === "loading" ? "가까운 장소를 찾는 중…" : "근교 관광지 추천받기"}</span><b aria-hidden="true">→</b></button>
+                {recommendationState === "error" && <p className="inline-error" role="alert">근교 추천을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.</p>}
+                {recommendations.length > 0 && (
+                  <div className="nearby-list" aria-label="근교 추천 관광지">
+                    {recommendations.map((place, index) => {
+                      const selected = selectedPlaces.some((candidate) => candidate.id === place.id);
+                      return <article key={place.id} className={selected ? "selected" : ""} style={{ animationDelay: `${index * 45}ms` }}><div><span>{place.nearAnchorName}에서 {place.distanceKm}km</span><strong>{place.name}</strong><small>{place.category} · {place.description}</small></div><button type="button" onClick={() => toggleRecommendedPlace(place)} aria-label={`${place.name} ${selected ? "코스에서 빼기" : "코스에 담기"}`}>{selected ? "담김 ✓" : "+ 담기"}</button></article>;
+                    })}
+                    <p className={`places-source ${recommendationProvider === "google" ? "is-google" : ""}`}>
+                      {recommendationProvider === "google"
+                        ? "Google Maps의 최신 장소 정보를 바탕으로 추천했어요."
+                        : "Google Places를 사용할 수 없어 저장된 관광지 목록으로 추천했어요."}
+                    </p>
+                  </div>
+                )}
               </div>
             )}
           </div>
