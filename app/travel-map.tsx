@@ -34,7 +34,52 @@ type TravelMapProps = {
 };
 
 export default function TravelMap(props: TravelMapProps) {
-  if (!props.apiKey) {
+  const [runtimeApiKey, setRuntimeApiKey] = useState("");
+  const [configState, setConfigState] = useState<"loading" | "ready" | "error">(
+    props.apiKey ? "ready" : "loading",
+  );
+  const effectiveApiKey = props.apiKey || runtimeApiKey;
+
+  useEffect(() => {
+    if (props.apiKey) return;
+
+    let cancelled = false;
+
+    async function loadRuntimeConfig() {
+      try {
+        const response = await fetch("/api/maps-config", { cache: "no-store" });
+        if (!response.ok) throw new Error("maps_config_failed");
+        const data = (await response.json()) as { apiKey?: unknown };
+        if (typeof data.apiKey !== "string" || !data.apiKey) {
+          throw new Error("maps_key_missing");
+        }
+        if (!cancelled) {
+          setRuntimeApiKey(data.apiKey);
+          setConfigState("ready");
+        }
+      } catch {
+        if (!cancelled) setConfigState("error");
+      }
+    }
+
+    void loadRuntimeConfig();
+    return () => {
+      cancelled = true;
+    };
+  }, [props.apiKey]);
+
+  if (configState === "loading") {
+    return (
+      <div className="map-canvas" role="region" aria-label="추천 여행 코스 Google 지도">
+        <div className="map-system-message" role="status">
+          <strong>Google 지도를 준비하고 있어요</strong>
+          <small>잠시만 기다려 주세요.</small>
+        </div>
+      </div>
+    );
+  }
+
+  if (configState === "error" || !effectiveApiKey) {
     return (
       <TravelMapFallback
         places={props.places}
@@ -44,7 +89,7 @@ export default function TravelMap(props: TravelMapProps) {
       />
     );
   }
-  return <GoogleTravelMap {...props} />;
+  return <GoogleTravelMap {...props} apiKey={effectiveApiKey} />;
 }
 
 function GoogleTravelMap({
