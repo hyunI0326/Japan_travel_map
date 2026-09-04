@@ -22,12 +22,12 @@ export async function POST(request: Request) {
   }
 
   try {
-    const recommendations = await recommendNearbyPlaces({
+    const result = await recommendNearbyPlaces({
       regionId: body.regionId,
       style: body.style,
       anchorPlaceIds: [...new Set(body.anchorPlaceIds)].slice(0, 6),
     });
-    return Response.json({ recommendations });
+    return Response.json(result);
   } catch (error) {
     if (
       error instanceof Error &&

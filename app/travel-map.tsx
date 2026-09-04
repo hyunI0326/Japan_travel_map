@@ -1,131 +1,180 @@
 "use client";
 
-import { useCallback, useEffect, useRef } from "react";
-import type {
-  GeoJSONSource,
-  Map as MapLibreMap,
-  Marker as MapLibreMarker,
-} from "maplibre-gl";
+import { importLibrary, setOptions } from "@googlemaps/js-api-loader";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { TravelPlace } from "@/lib/travel-types";
+import TravelMapFallback from "./travel-map-fallback";
 
-type MapLibreModule = typeof import("maplibre-gl");
+let loaderPromise:
+  | Promise<[google.maps.MapsLibrary, google.maps.MarkerLibrary]>
+  | null = null;
 
-export default function TravelMap({
-  places,
-  activePlaceId,
-  center,
-  onSelect,
-}: {
+function loadGoogleMaps(apiKey: string) {
+  if (!loaderPromise) {
+    setOptions({
+      key: apiKey,
+      v: "weekly",
+      language: "ko",
+      region: "JP",
+    });
+    loaderPromise = Promise.all([
+      importLibrary("maps"),
+      importLibrary("marker"),
+    ]);
+  }
+  return loaderPromise;
+}
+
+type TravelMapProps = {
+  apiKey: string;
   places: TravelPlace[];
   activePlaceId: string;
   center: [number, number];
   onSelect: (placeId: string) => void;
-}) {
+};
+
+export default function TravelMap(props: TravelMapProps) {
+  if (!props.apiKey) {
+    return (
+      <TravelMapFallback
+        places={props.places}
+        activePlaceId={props.activePlaceId}
+        center={props.center}
+        onSelect={props.onSelect}
+      />
+    );
+  }
+  return <GoogleTravelMap {...props} />;
+}
+
+function GoogleTravelMap({
+  apiKey,
+  places,
+  activePlaceId,
+  center,
+  onSelect,
+}: TravelMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<MapLibreMap | null>(null);
-  const mapLibreRef = useRef<MapLibreModule | null>(null);
-  const markersRef = useRef<MapLibreMarker[]>([]);
-  const loadedRef = useRef(false);
+  const mapRef = useRef<google.maps.Map | null>(null);
+  const routeRef = useRef<google.maps.Polyline | null>(null);
+  const markersRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
+  const advancedMarkerRef = useRef<
+    typeof google.maps.marker.AdvancedMarkerElement | null
+  >(null);
+  const boundsRef = useRef<typeof google.maps.LatLngBounds | null>(null);
   const placesRef = useRef(places);
   const activeRef = useRef(activePlaceId);
   const centerRef = useRef(center);
   const onSelectRef = useRef(onSelect);
+  const [mapState, setMapState] = useState<"loading" | "ready" | "error">("loading");
 
   const renderRoute = useCallback(() => {
     const map = mapRef.current;
-    const maplibre = mapLibreRef.current;
-    if (!map || !maplibre || !loadedRef.current) return;
+    const route = routeRef.current;
+    const AdvancedMarkerElement = advancedMarkerRef.current;
+    const LatLngBounds = boundsRef.current;
+    if (!map || !route || !AdvancedMarkerElement || !LatLngBounds) return;
 
     const currentPlaces = placesRef.current;
-    const source = map.getSource("momotabi-route") as GeoJSONSource | undefined;
-    source?.setData({
-      type: "Feature",
-      properties: {},
-      geometry: {
-        type: "LineString",
-        coordinates: currentPlaces.map((place) => [place.longitude, place.latitude]),
-      },
-    });
+    route.setPath(
+      currentPlaces.length > 1
+        ? currentPlaces.map((place) => ({
+            lat: place.latitude,
+            lng: place.longitude,
+          }))
+        : [],
+    );
 
-    markersRef.current.forEach((marker) => marker.remove());
+    markersRef.current.forEach((marker) => {
+      marker.map = null;
+    });
     markersRef.current = currentPlaces.map((place, index) => {
       const markerButton = document.createElement("button");
       markerButton.type = "button";
-      markerButton.className = `map-route-marker${place.id === activeRef.current ? " is-active" : ""}`;
+      markerButton.className = `map-route-marker${
+        place.id === activeRef.current ? " is-active" : ""
+      }`;
       markerButton.textContent = String(index + 1).padStart(2, "0");
       markerButton.setAttribute("aria-label", `${place.name}, 지도에서 보기`);
       markerButton.addEventListener("click", () => onSelectRef.current(place.id));
-      return new maplibre.Marker({ element: markerButton, anchor: "center" })
-        .setLngLat([place.longitude, place.latitude])
-        .addTo(map);
+
+      return new AdvancedMarkerElement({
+        map,
+        position: { lat: place.latitude, lng: place.longitude },
+        title: place.name,
+        content: markerButton,
+        zIndex: place.id === activeRef.current ? 1000 : index + 1,
+      });
     });
 
-    if (currentPlaces.length > 0) {
-      const bounds = new maplibre.LngLatBounds();
-      currentPlaces.forEach((place) => bounds.extend([place.longitude, place.latitude]));
-      map.fitBounds(bounds, { padding: 92, maxZoom: 13.5, duration: 550 });
+    if (currentPlaces.length === 1) {
+      map.setCenter({
+        lat: currentPlaces[0].latitude,
+        lng: currentPlaces[0].longitude,
+      });
+      map.setZoom(14);
+    } else if (currentPlaces.length > 1) {
+      const bounds = new LatLngBounds();
+      currentPlaces.forEach((place) =>
+        bounds.extend({ lat: place.latitude, lng: place.longitude }),
+      );
+      map.fitBounds(bounds, 92);
     } else {
-      map.jumpTo({ center: centerRef.current, zoom: 11 });
+      map.setCenter({ lat: centerRef.current[1], lng: centerRef.current[0] });
+      map.setZoom(11);
     }
   }, []);
 
   useEffect(() => {
+    if (!containerRef.current) return;
     let cancelled = false;
 
     async function initializeMap() {
-      if (!containerRef.current) return;
-      const mapLibrary = await import("maplibre-gl");
-      if (cancelled || !containerRef.current) return;
-      const maplibre = mapLibrary;
-      mapLibreRef.current = maplibre;
-      const map = new maplibre.Map({
-        container: containerRef.current,
-        style: "https://tiles.openfreemap.org/styles/bright",
-        center: centerRef.current,
-        zoom: 11,
-        localIdeographFontFamily: '"Apple SD Gothic Neo", "Noto Sans KR", sans-serif',
-      });
-      map.addControl(new maplibre.NavigationControl({ showCompass: false }), "top-right");
-      mapRef.current = map;
+      try {
+        const [mapsLibrary, markerLibrary] = await loadGoogleMaps(apiKey);
+        if (cancelled || !containerRef.current) return;
 
-      map.on("load", () => {
-        if (cancelled) return;
-        map.addSource("momotabi-route", {
-          type: "geojson",
-          data: {
-            type: "Feature",
-            properties: {},
-            geometry: { type: "LineString", coordinates: [] },
-          },
+        const map = new mapsLibrary.Map(containerRef.current, {
+          center: { lat: centerRef.current[1], lng: centerRef.current[0] },
+          zoom: 11,
+          mapId: "DEMO_MAP_ID",
+          clickableIcons: false,
+          fullscreenControl: true,
+          mapTypeControl: false,
+          streetViewControl: false,
+          zoomControl: true,
         });
-        map.addLayer({
-          id: "momotabi-route-halo",
-          type: "line",
-          source: "momotabi-route",
-          layout: { "line-cap": "round", "line-join": "round" },
-          paint: { "line-color": "#ffffff", "line-width": 9, "line-opacity": 0.9 },
+        const route = new mapsLibrary.Polyline({
+          map,
+          strokeColor: "#2563eb",
+          strokeOpacity: 0.96,
+          strokeWeight: 5,
+          geodesic: true,
         });
-        map.addLayer({
-          id: "momotabi-route-line",
-          type: "line",
-          source: "momotabi-route",
-          layout: { "line-cap": "round", "line-join": "round" },
-          paint: { "line-color": "#2563eb", "line-width": 4, "line-opacity": 0.96 },
-        });
-        loadedRef.current = true;
+
+        mapRef.current = map;
+        routeRef.current = route;
+        advancedMarkerRef.current = markerLibrary.AdvancedMarkerElement;
+        boundsRef.current = google.maps.LatLngBounds;
+        setMapState("ready");
         renderRoute();
-      });
+      } catch {
+        if (!cancelled) setMapState("error");
+      }
     }
 
-    initializeMap();
+    void initializeMap();
     return () => {
       cancelled = true;
-      markersRef.current.forEach((marker) => marker.remove());
-      mapRef.current?.remove();
+      markersRef.current.forEach((marker) => {
+        marker.map = null;
+      });
+      markersRef.current = [];
+      routeRef.current?.setMap(null);
+      routeRef.current = null;
       mapRef.current = null;
-      loadedRef.current = false;
     };
-  }, [renderRoute]);
+  }, [apiKey, renderRoute]);
 
   useEffect(() => {
     placesRef.current = places;
@@ -136,11 +185,20 @@ export default function TravelMap({
   }, [places, activePlaceId, center, onSelect, renderRoute]);
 
   return (
-    <div
-      ref={containerRef}
-      className="map-canvas"
-      role="region"
-      aria-label="추천 여행 코스 지도"
-    />
+    <div className="map-canvas" role="region" aria-label="추천 여행 코스 Google 지도">
+      <div ref={containerRef} className="google-map-surface" />
+      {mapState !== "ready" && (
+        <div className="map-system-message" role="status">
+          <strong>
+            {mapState === "loading"
+              ? "Google 지도를 불러오는 중이에요"
+              : "Google 지도를 불러오지 못했어요"}
+          </strong>
+          <small>
+            잠시 후 새로고침해 주세요.
+          </small>
+        </div>
+      )}
+    </div>
   );
 }

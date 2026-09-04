@@ -3,7 +3,11 @@ import {
   getSavedCourses,
   saveCourse,
 } from "@/lib/travel-service";
-import { isTravelStyle, normalizeDayCount } from "@/lib/travel-types";
+import {
+  isGooglePlaceSnapshot,
+  isTravelStyle,
+  normalizeDayCount,
+} from "@/lib/travel-types";
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +31,7 @@ export async function POST(request: Request) {
     style?: unknown;
     dayCount?: unknown;
     placeIds?: unknown;
+    placeSnapshots?: unknown;
   } | null;
   if (!body || typeof body.regionId !== "string" || !isTravelStyle(body.style)) {
     return Response.json({ error: "INVALID_REQUEST" }, { status: 400 });
@@ -40,6 +45,14 @@ export async function POST(request: Request) {
   ) {
     return Response.json({ error: "INVALID_REQUEST" }, { status: 400 });
   }
+  if (
+    body.placeSnapshots !== undefined &&
+    (!Array.isArray(body.placeSnapshots) ||
+      body.placeSnapshots.length > 9 ||
+      body.placeSnapshots.some((place) => !isGooglePlaceSnapshot(place)))
+  ) {
+    return Response.json({ error: "INVALID_REQUEST" }, { status: 400 });
+  }
 
   try {
     const course = await saveCourse({
@@ -48,6 +61,7 @@ export async function POST(request: Request) {
       style: body.style,
       dayCount: normalizeDayCount(body.dayCount),
       placeIds: body.placeIds as string[] | undefined,
+      externalPlaces: body.placeSnapshots,
     });
     return Response.json({ course }, { status: 201 });
   } catch (error) {

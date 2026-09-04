@@ -1,5 +1,6 @@
 import { ensureDatabase } from "@/db/init";
 import { getD1 } from "@/db";
+import { searchGoogleNearbyPlaces } from "@/lib/google-places";
 import {
   buildCustomCourse,
   calculateDistanceKm,
@@ -122,13 +123,29 @@ export async function recommendNearbyPlaces({
   regionId: string;
   anchorPlaceIds: string[];
   style: TravelStyle;
-}): Promise<PlaceRecommendation[]> {
+}): Promise<{
+  recommendations: PlaceRecommendation[];
+  provider: "google" | "catalog";
+}> {
   const { placeRows } = await getRegionAndPlaceRows(regionId);
   const anchorSet = new Set(anchorPlaceIds);
   const anchors = placeRows.filter((place) => anchorSet.has(place.id));
   if (anchors.length === 0) throw new Error("ANCHOR_NOT_FOUND");
 
-  return placeRows
+  try {
+    const googleRecommendations = await searchGoogleNearbyPlaces({
+      anchors: anchors.map(toTravelPlace),
+      style,
+    });
+    if (googleRecommendations?.length) {
+      return { recommendations: googleRecommendations, provider: "google" };
+    }
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : "GOOGLE_PLACES_UNKNOWN";
+    console.error("Google Places nearby search failed; using catalog fallback.", reason);
+  }
+
+  const recommendations = placeRows
     .filter((place) => !anchorSet.has(place.id))
     .map((place) => {
       const nearest = anchors
@@ -153,6 +170,8 @@ export async function recommendNearbyPlaces({
       distanceKm: place.distanceKm,
       nearAnchorName: place.nearAnchorName,
     }));
+
+  return { recommendations, provider: "catalog" };
 }
 
 function scorePlace(place: PlaceRow, style: TravelStyle) {
@@ -243,17 +262,64 @@ export async function saveCourse({
   style,
   dayCount,
   placeIds,
+  externalPlaces = [],
 }: {
   userId: string;
   regionId: string;
   style: TravelStyle;
   dayCount: number;
   placeIds?: string[];
+  externalPlaces?: TravelPlace[];
 }) {
   let course: TravelCourse;
   if (placeIds?.length) {
     const { region, placeRows } = await getRegionAndPlaceRows(regionId);
-    const placeMap = new Map(placeRows.map((place) => [place.id, place]));
+    const externalPlaceRows: PlaceRow[] = externalPlaces.map((place, index) => ({
+      ...place,
+      regionId,
+      dayGroup: 3,
+      sortOrder: 90 + index,
+      styleTags: `${style},balanced`,
+    }));
+    if (externalPlaceRows.length) {
+      const database = getD1();
+      await database.batch(
+        externalPlaceRows.map((place) =>
+          database
+            .prepare(
+              `INSERT INTO "place"
+                ("id", "regionId", "dayGroup", "sortOrder", "name", "category", "description", "suggestedTime", "durationMinutes", "latitude", "longitude", "styleTags")
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+               ON CONFLICT("id") DO UPDATE SET
+                 "name" = excluded."name",
+                 "category" = excluded."category",
+                 "description" = excluded."description",
+                 "suggestedTime" = excluded."suggestedTime",
+                 "durationMinutes" = excluded."durationMinutes",
+                 "latitude" = excluded."latitude",
+                 "longitude" = excluded."longitude",
+                 "styleTags" = excluded."styleTags"`,
+            )
+            .bind(
+              place.id,
+              place.regionId,
+              place.dayGroup,
+              place.sortOrder,
+              place.name,
+              place.category,
+              place.description,
+              place.suggestedTime,
+              place.durationMinutes,
+              place.latitude,
+              place.longitude,
+              place.styleTags,
+            ),
+        ),
+      );
+    }
+    const placeMap = new Map(
+      [...placeRows, ...externalPlaceRows].map((place) => [place.id, place]),
+    );
     const uniquePlaceIds = [...new Set(placeIds)].slice(0, 9);
     const selectedPlaces = uniquePlaceIds.map((id) => placeMap.get(id));
     if (selectedPlaces.some((place) => !place)) throw new Error("PLACE_NOT_FOUND");

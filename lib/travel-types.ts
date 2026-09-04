@@ -24,6 +24,8 @@ export type TravelPlace = {
   durationMinutes: number;
   latitude: number;
   longitude: number;
+  source?: "catalog" | "google";
+  externalUrl?: string;
 };
 
 export type PlaceRecommendation = TravelPlace & {
@@ -64,6 +66,36 @@ export const styleLabels: Record<TravelStyle, string> = {
 
 export function isTravelStyle(value: unknown): value is TravelStyle {
   return typeof value === "string" && travelStyles.includes(value as TravelStyle);
+}
+
+export function isGooglePlaceSnapshot(value: unknown): value is TravelPlace {
+  if (!value || typeof value !== "object") return false;
+  const place = value as Record<string, unknown>;
+  return (
+    typeof place.id === "string" &&
+    /^google:[A-Za-z0-9_-]{1,240}$/.test(place.id) &&
+    typeof place.name === "string" &&
+    place.name.trim().length > 0 &&
+    place.name.length <= 160 &&
+    typeof place.category === "string" &&
+    place.category.length <= 100 &&
+    typeof place.description === "string" &&
+    place.description.length <= 400 &&
+    typeof place.suggestedTime === "string" &&
+    /^\d{2}:\d{2}$/.test(place.suggestedTime) &&
+    typeof place.durationMinutes === "number" &&
+    Number.isInteger(place.durationMinutes) &&
+    place.durationMinutes >= 15 &&
+    place.durationMinutes <= 720 &&
+    typeof place.latitude === "number" &&
+    Number.isFinite(place.latitude) &&
+    place.latitude >= 24 &&
+    place.latitude <= 46 &&
+    typeof place.longitude === "number" &&
+    Number.isFinite(place.longitude) &&
+    place.longitude >= 122 &&
+    place.longitude <= 154
+  );
 }
 
 export function normalizeDayCount(value: unknown) {

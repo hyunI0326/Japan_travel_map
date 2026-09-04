@@ -20,10 +20,12 @@ export default function TripPlanner({
   regions,
   initialCourse,
   initialCatalog,
+  googleMapsApiKey,
 }: {
   regions: TravelRegion[];
   initialCourse: TravelCourse;
   initialCatalog: PlaceCatalog;
+  googleMapsApiKey: string;
 }) {
   const { user } = useAuth();
   const [regionId, setRegionId] = useState(initialCatalog.region.id);
@@ -31,6 +33,9 @@ export default function TripPlanner({
   const [style, setStyle] = useState<TravelStyle>(initialCourse.style);
   const [mustVisitIds, setMustVisitIds] = useState<string[]>([]);
   const [recommendations, setRecommendations] = useState<PlaceRecommendation[]>([]);
+  const [recommendationProvider, setRecommendationProvider] = useState<
+    "google" | "catalog" | null
+  >(null);
   const [selectedPlaces, setSelectedPlaces] = useState<TravelPlace[]>([]);
   const [activePlaceId, setActivePlaceId] = useState("");
   const [savedCourses, setSavedCourses] = useState<TravelCourse[]>([]);
@@ -73,6 +78,7 @@ export default function TripPlanner({
     setCatalogState("loading");
     setMustVisitIds([]);
     setRecommendations([]);
+    setRecommendationProvider(null);
     setSelectedPlaces([]);
     setActivePlaceId("");
     setSaveState("idle");
@@ -101,6 +107,7 @@ export default function TripPlanner({
     );
     if (!selected) setActivePlaceId(place.id);
     setRecommendations([]);
+    setRecommendationProvider(null);
     setRecommendationState("idle");
     setSaveState("idle");
   }
@@ -116,8 +123,12 @@ export default function TripPlanner({
         body: JSON.stringify({ regionId, style, anchorPlaceIds: mustVisitIds }),
       });
       if (!response.ok) throw new Error("recommendation_failed");
-      const data = (await response.json()) as { recommendations: PlaceRecommendation[] };
+      const data = (await response.json()) as {
+        recommendations: PlaceRecommendation[];
+        provider: "google" | "catalog";
+      };
       setRecommendations(data.recommendations);
+      setRecommendationProvider(data.provider);
       setRecommendationState("idle");
     } catch {
       setRecommendationState("error");
@@ -165,6 +176,7 @@ export default function TripPlanner({
     }
     setStyle(savedCourse.style);
     setRecommendations([]);
+    setRecommendationProvider(null);
     setSelectedPlaces(places);
     setActivePlaceId(places[0]?.id ?? "");
     setSaveState("saved");
@@ -186,6 +198,7 @@ export default function TripPlanner({
           style,
           dayCount: course.dayCount,
           placeIds: selectedPlaces.map((place) => place.id),
+          placeSnapshots: selectedPlaces.filter((place) => place.source === "google"),
         }),
       });
       if (!response.ok) throw new Error("save_failed");
@@ -205,6 +218,12 @@ export default function TripPlanner({
   const userInitial = user?.displayName.trim().charAt(0).toUpperCase() || "M";
   const durationLabel = activePlace
     ? `${Math.max(1, Math.round(activePlace.durationMinutes / 60))}시간 추천`
+    : "";
+  const activePlaceMapUrl = activePlace
+    ? activePlace.externalUrl ||
+      `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+        `${activePlace.latitude},${activePlace.longitude}`,
+      )}`
     : "";
 
   return (
@@ -258,7 +277,7 @@ export default function TripPlanner({
           <div className="planner-step">
             <div className="step-heading"><b>03</b><div><span>근교 추천</span><h3>선택한 곳 근처를 함께 둘러봐요</h3></div></div>
             <div className="style-switcher compact" role="group" aria-label="여행 스타일 선택">
-              {travelStyles.map((item) => <button key={item} type="button" className={style === item ? "selected" : ""} aria-pressed={style === item} onClick={() => { setStyle(item); setRecommendations([]); }}>{styleLabels[item]}</button>)}
+              {travelStyles.map((item) => <button key={item} type="button" className={style === item ? "selected" : ""} aria-pressed={style === item} onClick={() => { setStyle(item); setRecommendations([]); setRecommendationProvider(null); }}>{styleLabels[item]}</button>)}
             </div>
             <button className="recommend-button" type="button" onClick={generateRecommendations} disabled={mustVisitIds.length === 0 || recommendationState === "loading"}><span>{recommendationState === "loading" ? "가까운 장소를 찾는 중…" : mustVisitIds.length === 0 ? "먼저 필수 관광지를 선택해 주세요" : "근교 관광지 추천받기"}</span><b aria-hidden="true">→</b></button>
             {recommendationState === "error" && <p className="inline-error" role="alert">근교 추천을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.</p>}
@@ -268,6 +287,11 @@ export default function TripPlanner({
                   const selected = selectedPlaces.some((candidate) => candidate.id === place.id);
                   return <article key={place.id} className={selected ? "selected" : ""}><div><span>{place.nearAnchorName}에서 {place.distanceKm}km</span><strong>{place.name}</strong><small>{place.category} · {place.description}</small></div><button type="button" onClick={() => toggleRecommendedPlace(place)} aria-label={`${place.name} ${selected ? "코스에서 빼기" : "코스에 담기"}`}>{selected ? "담김 ✓" : "+ 담기"}</button></article>;
                 })}
+                <p className={`places-source ${recommendationProvider === "google" ? "is-google" : ""}`}>
+                  {recommendationProvider === "google"
+                    ? "Google Maps의 최신 장소 정보를 바탕으로 추천했어요."
+                    : "Google Places를 사용할 수 없어 저장된 관광지 목록으로 추천했어요."}
+                </p>
               </div>
             )}
           </div>
@@ -294,11 +318,11 @@ export default function TripPlanner({
       </section>
 
       <section className="map-panel" aria-label={`${catalog.region.nameKo} 내 여행 코스 지도`}>
-        <TravelMap places={selectedPlaces} activePlaceId={activePlace?.id ?? ""} center={mapCenter} onSelect={setActivePlaceId} />
+        <TravelMap apiKey={googleMapsApiKey} places={selectedPlaces} activePlaceId={activePlace?.id ?? ""} center={mapCenter} onSelect={setActivePlaceId} />
         <div className="map-shade" aria-hidden="true" />
         <div className="map-label">{catalog.region.nameKo} · 내 코스 {selectedPlaces.length}곳</div>
         <div className="map-legend" aria-label="지도 범례"><span><i /> 내 이동 동선</span><span><b>01</b> 방문 순서</span></div>
-        {activePlace ? <><div className="map-float" aria-live="polite"><span>MY ROUTE · STOP {String(selectedPlaces.indexOf(activePlace) + 1).padStart(2, "0")}</span><strong>{activePlace.name}</strong><small>{activePlace.suggestedTime} 추천 · {durationLabel}</small></div><a className="open-map" href={`https://www.openstreetmap.org/?mlat=${activePlace.latitude}&mlon=${activePlace.longitude}#map=16/${activePlace.latitude}/${activePlace.longitude}`} target="_blank" rel="noreferrer" aria-label={`${activePlace.name} 큰 지도 열기`}>큰 지도에서 보기 ↗</a></> : <div className="map-empty"><span>YOUR ROUTE MAP</span><strong>관광지를 선택하면<br />여기에 코스가 그려져요.</strong><small>선택한 순서대로 번호와 이동선이 표시됩니다.</small></div>}
+        {activePlace ? <><div className="map-float" aria-live="polite"><span>MY ROUTE · STOP {String(selectedPlaces.indexOf(activePlace) + 1).padStart(2, "0")}</span><strong>{activePlace.name}</strong><small>{activePlace.suggestedTime} 추천 · {durationLabel}</small></div><a className="open-map" href={activePlaceMapUrl} target="_blank" rel="noreferrer" aria-label={`${activePlace.name} Google 지도에서 열기`}>Google 지도에서 보기 ↗</a></> : <div className="map-empty"><span>YOUR ROUTE MAP</span><strong>관광지를 선택하면<br />여기에 코스가 그려져요.</strong><small>선택한 순서대로 번호와 이동선이 표시됩니다.</small></div>}
       </section>
     </main>
   );
