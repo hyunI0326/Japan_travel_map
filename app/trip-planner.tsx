@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useAuth } from "./auth-context";
+import PolicyLinks from "./policy-links";
 import TravelMap from "./travel-map";
 import { authClient } from "@/lib/auth-client";
 import {
@@ -1548,13 +1549,7 @@ export default function TripPlanner({
             <Link className="footer-brand" href="/#top"><span className="brand-mark" aria-hidden="true">も</span><span><strong>MOMOTABI</strong><small>취향대로 만드는 일본 여행 코스</small></span></Link>
             <p>관광지 선택을 출발점으로 가까운 장소와 이동 순서를 함께 살펴보는 여행 계획 도구입니다.</p>
           </div>
-          <nav aria-label="정책 및 안내">
-            <Link href="/guide">여행 가이드</Link>
-            <Link href="/about">서비스 소개</Link>
-            <Link href="/contact">문의</Link>
-            <Link href="/privacy">개인정보 처리방침</Link>
-            <Link href="/terms">이용약관</Link>
-          </nav>
+          <PolicyLinks />
           <small>© 2026 MOMOTABI. 여행 전 운영시간과 교통편을 다시 확인해 주세요.</small>
         </footer>
       </section>

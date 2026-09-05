@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import PolicyLinks from "./policy-links";
 
 type InfoPageProps = {
   eyebrow: string;
@@ -38,13 +39,7 @@ export default function InfoPage({ eyebrow, title, intro, children, updatedAt }:
           <strong>MOMOTABI</strong>
           <span>일본 여행의 출발점을 더 쉽게</span>
         </div>
-        <nav aria-label="정책 및 안내">
-          <Link href="/guide">여행 가이드</Link>
-          <Link href="/about">서비스 소개</Link>
-          <Link href="/contact">문의</Link>
-          <Link href="/privacy">개인정보 처리방침</Link>
-          <Link href="/terms">이용약관</Link>
-        </nav>
+        <PolicyLinks />
         <small>© 2026 MOMOTABI</small>
       </footer>
     </div>
