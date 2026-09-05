@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { providerAvailability } from "@/lib/auth";
 import SocialLogin from "./social-login";
 
@@ -8,13 +7,13 @@ export default function LoginPage() {
   return (
     <main className="auth-page">
       <header className="auth-header">
-        <Link className="auth-brand" href="/" aria-label="모모타비 홈">
+        <a className="auth-brand" href="/#top" aria-label="모모타비 홈">
           <span className="brand-mark">も</span>
           <span>MOMOTABI</span>
-        </Link>
-        <Link className="auth-home-link" href="/">
+        </a>
+        <a className="auth-home-link" href="/#top">
           여행 둘러보기 <span aria-hidden="true">↗</span>
-        </Link>
+        </a>
       </header>
 
       <div className="auth-content">

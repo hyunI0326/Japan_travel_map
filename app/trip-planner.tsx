@@ -792,9 +792,11 @@ export default function TripPlanner({
         <nav aria-label="주요 메뉴">
           <a className="section-link active" href="#planner">코스 만들기</a>
           <a className="section-link" href="#saved">내 코스</a>
-          <button className={`save-button ${saveState === "saved" ? "is-saved" : ""}`} onClick={saveCurrentCourse} type="button" disabled={selectedPlaces.length === 0 || saveState === "saving"}>
-            {!user ? "로그인 후 저장" : saveState === "saving" ? "저장 중…" : saveState === "saved" ? "저장됨 ✓" : "이 코스 저장"}
-          </button>
+          {user && (
+            <button className={`save-button ${saveState === "saved" ? "is-saved" : ""}`} onClick={saveCurrentCourse} type="button" disabled={selectedPlaces.length === 0 || saveState === "saving"}>
+              {saveState === "saving" ? "저장 중…" : saveState === "saved" ? "저장됨 ✓" : "이 코스 저장"}
+            </button>
+          )}
           {user ? (
             <div className="account-control">
               <div className="account-chip" title={user.email} aria-label={`${user.displayName} 계정으로 로그인됨`}><span className="account-avatar" aria-hidden="true">{userInitial}</span><span className="account-copy"><strong>{user.displayName}</strong><small>로그인됨</small></span></div>

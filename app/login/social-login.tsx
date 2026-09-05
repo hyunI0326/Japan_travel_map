@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { authClient } from "@/lib/auth-client";
 
 type Provider = "google" | "kakao" | "naver";
@@ -94,9 +93,9 @@ export default function SocialLogin({ providers }: SocialLoginProps) {
       )}
       {error && <p className="auth-error" role="alert">{error}</p>}
       <div className="auth-divider" aria-hidden="true"><span>또는</span></div>
-      <Link className="auth-back" href="/">
+      <a className="auth-back" href="/#top">
         로그인 없이 먼저 둘러보기 <span aria-hidden="true">→</span>
-      </Link>
+      </a>
 
       <div className="auth-security-note">
         <span aria-hidden="true">✓</span>
