@@ -44,7 +44,13 @@ function apiKey() {
   return runtimeEnv.GOOGLE_MAPS_API_KEY || runtimeEnv.GOOLE_MAPS_API_KEY || "";
 }
 
-function waypoint(place: TravelPlace) {
+function waypoint(place: TravelPlace, mode?: TransportMode) {
+  if (place.id.startsWith("google:")) {
+    return { placeId: place.id.slice("google:".length) };
+  }
+  if (mode === "transit") {
+    return { address: `${place.name}, Japan` };
+  }
   return {
     location: {
       latLng: {
@@ -115,8 +121,8 @@ export async function getNearestTravelTimes({
         ].join(","),
       },
       body: JSON.stringify({
-        origins: limitedOrigins.map((place) => ({ waypoint: waypoint(place) })),
-        destinations: limitedDestinations.map((place) => ({ waypoint: waypoint(place) })),
+        origins: limitedOrigins.map((place) => ({ waypoint: waypoint(place, transport) })),
+        destinations: limitedDestinations.map((place) => ({ waypoint: waypoint(place, transport) })),
         travelMode: travelMode(transport),
         ...(transport === "driving" ? { routingPreference: "TRAFFIC_AWARE" } : {}),
         ...transitDepartureTime(transport),
@@ -192,12 +198,69 @@ export async function optimizeDayWithGoogle({
   if (!key || places.length === 0) return null;
 
   const hasStartLocation = startLocation.trim().length > 0;
+  if (transport === "transit") {
+    const routePairs = places.map((place, index) => {
+      if (index === 0) {
+        return hasStartLocation
+          ? [{ address: startLocation.trim() }, waypoint(place, transport)] as const
+          : null;
+      }
+      return [waypoint(places[index - 1], transport), waypoint(place, transport)] as const;
+    });
+    const transitLegs = await Promise.all(
+      routePairs.map(async (pair) => {
+        if (!pair) return { minutes: 0, distanceKm: 0 };
+        const response = await fetch("https://routes.googleapis.com/directions/v2:computeRoutes", {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            "X-Goog-Api-Key": key,
+            "X-Goog-FieldMask": "routes.duration,routes.distanceMeters",
+          },
+          body: JSON.stringify({
+            origin: pair[0],
+            destination: pair[1],
+            travelMode: "TRANSIT",
+            ...transitDepartureTime(transport),
+            languageCode: "ko",
+            units: "METRIC",
+          }),
+        });
+        const data = (await response.json().catch(() => ({}))) as ComputeRoutesResponse;
+        if (!response.ok) {
+          const reason = data.error?.status || `HTTP_${response.status}`;
+          throw new Error(`GOOGLE_ROUTES_${reason}`);
+        }
+        const route = data.routes?.[0];
+        if (!route) return null;
+        return {
+          minutes: secondsToMinutes(route.duration),
+          distanceKm: Number(((route.distanceMeters ?? 0) / 1_000).toFixed(1)),
+        };
+      }),
+    );
+    if (transitLegs.some((leg) => !leg)) {
+      console.error("Google Routes returned no usable transit route for at least one leg.");
+      return null;
+    }
+    const safeLegs = transitLegs as Array<{ minutes: number; distanceKm: number }>;
+    return {
+      places,
+      legMinutes: safeLegs.map((leg) => leg.minutes),
+      legDistancesKm: safeLegs.map((leg) => leg.distanceKm),
+      totalMinutes: safeLegs.reduce((total, leg) => total + leg.minutes, 0),
+      totalDistanceKm: Number(
+        safeLegs.reduce((total, leg) => total + leg.distanceKm, 0).toFixed(1),
+      ),
+    };
+  }
+
   const origin = hasStartLocation
     ? { address: startLocation.trim() }
-    : waypoint(places[0]);
-  const destination = waypoint(places[places.length - 1]);
+    : waypoint(places[0], transport);
+  const destination = waypoint(places[places.length - 1], transport);
   const intermediatePlaces = hasStartLocation ? places.slice(0, -1) : places.slice(1, -1);
-  const canOptimize = transport !== "transit" && intermediatePlaces.length > 1;
+  const canOptimize = intermediatePlaces.length > 1;
 
   const response = await fetch("https://routes.googleapis.com/directions/v2:computeRoutes", {
     method: "POST",
@@ -215,10 +278,9 @@ export async function optimizeDayWithGoogle({
     body: JSON.stringify({
       origin,
       destination,
-      intermediates: intermediatePlaces.map(waypoint),
+      intermediates: intermediatePlaces.map((place) => waypoint(place, transport)),
       travelMode: travelMode(transport),
       optimizeWaypointOrder: canOptimize,
-      ...transitDepartureTime(transport),
       languageCode: "ko",
       units: "METRIC",
     }),
