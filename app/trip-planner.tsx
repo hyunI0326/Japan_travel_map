@@ -212,7 +212,8 @@ function priceLabel(priceLevel?: string) {
 function recommendationTravelLabel(place: PlaceRecommendation) {
   if (typeof place.travelMinutes === "number" && place.travelMode) {
     const mode = transportLabels[place.travelMode].replace(" 중심", "");
-    return `${place.nearAnchorName}에서 ${mode} ${formatDuration(place.travelMinutes)}`;
+    const estimate = place.travelEstimate ? "약 " : "";
+    return `${place.nearAnchorName}에서 ${mode} ${estimate}${formatDuration(place.travelMinutes)}`;
   }
   return `${place.nearAnchorName}에서 직선거리 ${place.distanceKm}km`;
 }

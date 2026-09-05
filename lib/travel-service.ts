@@ -209,13 +209,26 @@ async function addTravelTimes({
   anchors: TravelPlace[];
   transport: TransportMode;
 }) {
+  const withEstimatedTravelTimes = (places: PlaceRecommendation[]) =>
+    places.map((place) => ({
+      ...place,
+      travelMinutes: transport === "walking"
+        ? Math.max(5, Math.round(place.distanceKm * 12))
+        : transport === "driving"
+          ? Math.max(8, Math.round(place.distanceKm * 3 + 7))
+          : Math.max(10, Math.round(place.distanceKm * 4 + 10)),
+      travelDistanceKm: place.distanceKm,
+      travelMode: transport,
+      travelEstimate: true,
+    }));
+
   try {
     const matches = await getNearestTravelTimes({
       origins: anchors,
       destinations: recommendations,
       transport,
     });
-    if (!matches?.length) return recommendations;
+    if (!matches?.length) return withEstimatedTravelTimes(recommendations);
     const anchorNames = new Map(anchors.map((anchor) => [anchor.id, anchor.name]));
     const matchByPlaceId = new Map(matches.map((match) => [match.placeId, match]));
     return recommendations
@@ -229,7 +242,7 @@ async function addTravelTimes({
               travelDistanceKm: match.distanceKm,
               travelMode: transport,
             }
-          : place;
+          : withEstimatedTravelTimes([place])[0];
       })
       .sort((a, b) =>
         (a.travelMinutes ?? Number.POSITIVE_INFINITY) -
@@ -241,7 +254,7 @@ async function addTravelTimes({
       "Google route matrix failed; keeping distance ranking.",
       error instanceof Error ? error.message : "GOOGLE_ROUTE_MATRIX_UNKNOWN",
     );
-    return recommendations;
+    return withEstimatedTravelTimes(recommendations);
   }
 }
 

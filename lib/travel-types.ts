@@ -58,6 +58,7 @@ export type PlaceRecommendation = TravelPlace & {
   travelMinutes?: number;
   travelDistanceKm?: number;
   travelMode?: TransportMode;
+  travelEstimate?: boolean;
   photoUrl?: string;
   photoAttribution?: { displayName: string; uri?: string };
   photoGoogleMapsUri?: string;

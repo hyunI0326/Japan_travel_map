@@ -156,21 +156,6 @@ export async function getNearestTravelTimes({
     }
   });
 
-  if (bestByDestination.size === 0) {
-    console.error(
-      "Google route matrix returned no usable routes.",
-      JSON.stringify(
-        data.slice(0, 4).map((element) => ({
-          originIndex: element.originIndex,
-          destinationIndex: element.destinationIndex,
-          condition: element.condition,
-          statusCode: element.status?.code,
-          statusMessage: element.status?.message,
-        })),
-      ),
-    );
-  }
-
   return limitedDestinations.flatMap((place, destinationIndex) => {
     const best = bestByDestination.get(destinationIndex);
     if (!best || typeof best.originIndex !== "number") return [];
@@ -240,8 +225,7 @@ export async function optimizeDayWithGoogle({
       }),
     );
     if (transitLegs.some((leg) => !leg)) {
-      console.error("Google Routes returned no usable transit route for at least one leg.");
-      return null;
+      throw new Error("GOOGLE_ROUTES_TRANSIT_ROUTE_NOT_FOUND");
     }
     const safeLegs = transitLegs as Array<{ minutes: number; distanceKm: number }>;
     return {
