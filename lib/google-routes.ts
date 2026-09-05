@@ -150,6 +150,21 @@ export async function getNearestTravelTimes({
     }
   });
 
+  if (bestByDestination.size === 0) {
+    console.error(
+      "Google route matrix returned no usable routes.",
+      JSON.stringify(
+        data.slice(0, 4).map((element) => ({
+          originIndex: element.originIndex,
+          destinationIndex: element.destinationIndex,
+          condition: element.condition,
+          statusCode: element.status?.code,
+          statusMessage: element.status?.message,
+        })),
+      ),
+    );
+  }
+
   return limitedDestinations.flatMap((place, destinationIndex) => {
     const best = bestByDestination.get(destinationIndex);
     if (!best || typeof best.originIndex !== "number") return [];
@@ -215,7 +230,10 @@ export async function optimizeDayWithGoogle({
     throw new Error(`GOOGLE_ROUTES_${reason}`);
   }
   const route = data.routes?.[0];
-  if (!route) return null;
+  if (!route) {
+    console.error("Google Routes returned no usable transit or road route.");
+    return null;
+  }
 
   const optimizedIntermediatePlaces = route.optimizedIntermediateWaypointIndex?.length
     ? route.optimizedIntermediateWaypointIndex.map((index) => intermediatePlaces[index])
