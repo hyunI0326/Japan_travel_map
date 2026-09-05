@@ -1,6 +1,4 @@
-"use client";
-
-import type { MouseEvent } from "react";
+import SiteLink from "./site-link";
 
 const links = [
   { href: "/guide", label: "여행 가이드" },
@@ -11,17 +9,12 @@ const links = [
 ];
 
 export default function PolicyLinks() {
-  function navigate(event: MouseEvent<HTMLAnchorElement>, href: string) {
-    event.preventDefault();
-    window.location.assign(href);
-  }
-
   return (
     <nav aria-label="정책 및 안내">
       {links.map((link) => (
-        <a key={link.href} href={link.href} onClick={(event) => navigate(event, link.href)}>
+        <SiteLink key={link.href} href={link.href}>
           {link.label}
-        </a>
+        </SiteLink>
       ))}
     </nav>
   );

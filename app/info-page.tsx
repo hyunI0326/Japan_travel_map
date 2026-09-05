@@ -1,6 +1,6 @@
-import Link from "next/link";
 import type { ReactNode } from "react";
 import PolicyLinks from "./policy-links";
+import SiteLink from "./site-link";
 
 type InfoPageProps = {
   eyebrow: string;
@@ -14,13 +14,13 @@ export default function InfoPage({ eyebrow, title, intro, children, updatedAt }:
   return (
     <div className="info-shell">
       <header className="topbar info-topbar">
-        <Link className="brand" href="/#top" aria-label="모모타비 홈">
+        <SiteLink className="brand" href="/" aria-label="모모타비 홈">
           <span className="brand-mark">も</span>
           <span>MOMOTABI</span>
-        </Link>
+        </SiteLink>
         <nav aria-label="주요 메뉴">
-          <Link className="section-link" href="/">코스 만들기</Link>
-          <Link className="sign-in-link" href="/login">로그인</Link>
+          <SiteLink className="section-link" href="/#planner">코스 만들기</SiteLink>
+          <SiteLink className="sign-in-link" href="/login">로그인</SiteLink>
         </nav>
       </header>
 

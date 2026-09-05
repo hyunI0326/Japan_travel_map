@@ -1,9 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
 import { useAuth } from "./auth-context";
 import PolicyLinks from "./policy-links";
+import SiteLink from "./site-link";
 import TravelMap from "./travel-map";
 import { authClient } from "@/lib/auth-client";
 import {
@@ -1546,7 +1546,7 @@ export default function TripPlanner({
         <p className="disclaimer">Google 경로를 확인할 수 없는 장소만 직선거리 기준으로 표시돼요. 실제 운행 상황은 출발 전에 다시 확인해 주세요.</p>
         <footer className="site-footer" aria-label="사이트 정보">
           <div>
-            <Link className="footer-brand" href="/#top"><span className="brand-mark" aria-hidden="true">も</span><span><strong>MOMOTABI</strong><small>취향대로 만드는 일본 여행 코스</small></span></Link>
+            <SiteLink className="footer-brand" href="/"><span className="brand-mark" aria-hidden="true">も</span><span><strong>MOMOTABI</strong><small>취향대로 만드는 일본 여행 코스</small></span></SiteLink>
             <p>관광지 선택을 출발점으로 가까운 장소와 이동 순서를 함께 살펴보는 여행 계획 도구입니다.</p>
           </div>
           <PolicyLinks />

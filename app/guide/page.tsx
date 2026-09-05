@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import InfoPage from "../info-page";
+import SiteLink from "../site-link";
 
 export const metadata: Metadata = {
   title: "일본 여행 코스 만들기 가이드 | 모모타비",
@@ -73,7 +73,7 @@ export default function GuidePage() {
             <li>사진 촬영, 음식물 반입, 수하물 보관 같은 현장 규칙을 확인합니다.</li>
           </ul>
         </div>
-        <Link className="info-cta" href="/#planner">내 여행 코스 만들기 <span aria-hidden="true">→</span></Link>
+        <SiteLink className="info-cta" href="/#planner">내 여행 코스 만들기 <span aria-hidden="true">→</span></SiteLink>
       </section>
     </InfoPage>
   );
