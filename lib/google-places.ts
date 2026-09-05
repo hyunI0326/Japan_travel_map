@@ -140,6 +140,9 @@ export async function searchGoogleNearbyPlaces({
   if (!apiKey) return null;
 
   const { center, radius } = searchCircle(anchors);
+  const requestedTypes = placeTypesByStyle[
+    kind === "food" ? "food" : style === "food" ? "balanced" : style
+  ];
   const response = await fetch("https://places.googleapis.com/v1/places:searchNearby", {
     method: "POST",
     headers: {
@@ -156,9 +159,7 @@ export async function searchGoogleNearbyPlaces({
       ].join(","),
     },
     body: JSON.stringify({
-      includedTypes: placeTypesByStyle[
-        kind === "food" ? "food" : style === "food" ? "balanced" : style
-      ],
+      includedTypes: requestedTypes,
       maxResultCount: 20,
       rankPreference: "POPULARITY",
       languageCode: "ko",
@@ -182,6 +183,7 @@ export async function searchGoogleNearbyPlaces({
       if (
         !id ||
         !name ||
+        (kind === "food" && (!place.primaryType || !requestedTypes.includes(place.primaryType))) ||
         typeof latitude !== "number" ||
         typeof longitude !== "number"
       ) {
