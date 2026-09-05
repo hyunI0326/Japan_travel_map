@@ -92,6 +92,12 @@ export default function TravelMap(props: TravelMapProps) {
   return <GoogleTravelMap {...props} apiKey={effectiveApiKey} />;
 }
 
+function getMapViewportPadding() {
+  if (window.innerWidth <= 900) return 72;
+  const plannerWidth = Math.min(Math.max(window.innerWidth * 0.46, 480), 720);
+  return { top: 112, right: 72, bottom: 96, left: plannerWidth + 48 };
+}
+
 function GoogleTravelMap({
   apiKey,
   places,
@@ -158,12 +164,16 @@ function GoogleTravelMap({
         lng: currentPlaces[0].longitude,
       });
       map.setZoom(14);
+      const padding = getViewportPadding();
+      if (typeof padding !== "number") {
+        map.panBy(-(padding.left - padding.right) / 2, 0);
+      }
     } else if (currentPlaces.length > 1) {
       const bounds = new LatLngBounds();
       currentPlaces.forEach((place) =>
         bounds.extend({ lat: place.latitude, lng: place.longitude }),
       );
-      map.fitBounds(bounds, 92);
+      map.fitBounds(bounds, getViewportPadding());
     } else {
       map.setCenter({ lat: centerRef.current[1], lng: centerRef.current[0] });
       map.setZoom(11);
@@ -185,9 +195,15 @@ function GoogleTravelMap({
           mapId: "DEMO_MAP_ID",
           clickableIcons: false,
           fullscreenControl: true,
+          fullscreenControlOptions: {
+            position: mapsLibrary.ControlPosition.RIGHT_CENTER,
+          },
           mapTypeControl: false,
           streetViewControl: false,
           zoomControl: true,
+          zoomControlOptions: {
+            position: mapsLibrary.ControlPosition.RIGHT_CENTER,
+          },
         });
         const route = new mapsLibrary.Polyline({
           map,
