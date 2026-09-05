@@ -66,6 +66,14 @@ function travelMode(mode: TransportMode) {
   return "TRANSIT";
 }
 
+function transitDepartureTime(mode: TransportMode) {
+  // Giving transit a small scheduling buffer avoids asking for a journey whose
+  // first departure has already passed while the request is being processed.
+  return mode === "transit"
+    ? { departureTime: new Date(Date.now() + 5 * 60 * 1_000).toISOString() }
+    : {};
+}
+
 export type RouteMatrixMatch = {
   placeId: string;
   originId: string;
@@ -111,6 +119,7 @@ export async function getNearestTravelTimes({
         destinations: limitedDestinations.map((place) => ({ waypoint: waypoint(place) })),
         travelMode: travelMode(transport),
         ...(transport === "driving" ? { routingPreference: "TRAFFIC_AWARE" } : {}),
+        ...transitDepartureTime(transport),
         languageCode: "ko",
         regionCode: "JP",
         units: "METRIC",
@@ -194,6 +203,7 @@ export async function optimizeDayWithGoogle({
       intermediates: intermediatePlaces.map(waypoint),
       travelMode: travelMode(transport),
       optimizeWaypointOrder: canOptimize,
+      ...transitDepartureTime(transport),
       languageCode: "ko",
       units: "METRIC",
     }),
