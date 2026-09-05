@@ -5,6 +5,7 @@ import {
   type PlaceRecommendation,
   type RecommendationKind,
   type TravelPlace,
+  type TravelRegion,
   type TravelStyle,
 } from "@/lib/travel-types";
 
@@ -240,6 +241,114 @@ export async function searchGoogleNearbyPlaces({
     })
     .sort((a, b) => a.distanceKm - b.distanceKm)
     .slice(0, 12);
+}
+
+export async function searchGooglePlacesByText({
+  query,
+  region,
+  anchors,
+  purpose = "place",
+}: {
+  query: string;
+  region: TravelRegion;
+  anchors: TravelPlace[];
+  purpose?: "place" | "lodging";
+}): Promise<PlaceRecommendation[] | null> {
+  const apiKey = getApiKey();
+  const trimmedQuery = query.trim();
+  if (!apiKey || trimmedQuery.length < 2) return null;
+
+  const response = await fetch("https://places.googleapis.com/v1/places:searchText", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "X-Goog-Api-Key": apiKey,
+      "X-Goog-FieldMask": [
+        "places.id",
+        "places.displayName",
+        "places.primaryType",
+        "places.primaryTypeDisplayName",
+        "places.formattedAddress",
+        "places.location",
+        "places.googleMapsUri",
+        "places.photos",
+      ].join(","),
+    },
+    body: JSON.stringify({
+      textQuery: `${trimmedQuery} ${region.nameKo} 일본${purpose === "lodging" ? " 숙소 호텔" : ""}`,
+      pageSize: purpose === "lodging" ? 6 : 8,
+      languageCode: "ko",
+      regionCode: "JP",
+      locationBias: {
+        circle: {
+          center: { latitude: region.centerLat, longitude: region.centerLon },
+          radius: 40_000,
+        },
+      },
+    }),
+  });
+
+  const data = (await response.json().catch(() => ({}))) as GoogleNearbyResponse;
+  if (!response.ok) {
+    const reason = data.error?.status || `HTTP_${response.status}`;
+    throw new Error(`GOOGLE_PLACE_SEARCH_${reason}`);
+  }
+
+  const distanceAnchors = anchors.length
+    ? anchors
+    : [{
+        id: `region:${region.id}`,
+        name: `${region.nameKo} 중심`,
+        category: "지역 중심",
+        description: "",
+        suggestedTime: "09:00",
+        durationMinutes: 30,
+        latitude: region.centerLat,
+        longitude: region.centerLon,
+      } satisfies TravelPlace];
+
+  return (data.places ?? []).flatMap((place) => {
+    const id = place.id?.trim();
+    const name = place.displayName?.text?.trim();
+    const latitude = place.location?.latitude;
+    const longitude = place.location?.longitude;
+    if (!id || !name || typeof latitude !== "number" || typeof longitude !== "number") {
+      return [];
+    }
+
+    const candidate: TravelPlace = {
+      id: `google:${id}`,
+      name,
+      category:
+        place.primaryTypeDisplayName?.text?.trim() ||
+        place.primaryType?.replaceAll("_", " ") ||
+        (purpose === "lodging" ? "숙소" : "검색 장소"),
+      description: place.formattedAddress?.trim() || "Google Maps 장소 정보",
+      suggestedTime: purpose === "lodging" ? "09:00" : "10:00",
+      durationMinutes: purpose === "lodging" ? 30 : 90,
+      latitude,
+      longitude,
+      source: "google",
+      externalUrl: place.googleMapsUri,
+    };
+    const nearest = distanceAnchors
+      .map((anchor) => ({ anchor, distance: calculateDistanceKm(candidate, anchor) }))
+      .sort((a, b) => a.distance - b.distance)[0];
+    const photo = place.photos?.[0];
+    const attribution = photo?.authorAttributions?.[0];
+    return [{
+      ...candidate,
+      distanceKm: Number(nearest.distance.toFixed(1)),
+      nearAnchorName: nearest.anchor.name,
+      photoUrl: photo?.name
+        ? `/api/place-photo?name=${encodeURIComponent(photo.name)}`
+        : undefined,
+      photoAttribution: attribution?.displayName
+        ? { displayName: attribution.displayName, uri: attribution.uri }
+        : undefined,
+      photoGoogleMapsUri: photo?.googleMapsUri,
+    }];
+  });
 }
 
 function openingPeriods(place: GooglePlace): PlaceDetails["periods"] {

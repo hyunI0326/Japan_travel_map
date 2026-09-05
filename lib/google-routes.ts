@@ -21,6 +21,15 @@ type ComputeRoutesResponse = {
   error?: { status?: string; message?: string };
 };
 
+type RouteMatrixElement = {
+  originIndex?: number;
+  destinationIndex?: number;
+  duration?: string;
+  distanceMeters?: number;
+  condition?: string;
+  status?: { code?: number; message?: string };
+};
+
 export type OptimizedDayRoute = {
   places: TravelPlace[];
   legMinutes: number[];
@@ -55,6 +64,95 @@ function travelMode(mode: TransportMode) {
   if (mode === "walking") return "WALK";
   if (mode === "driving") return "DRIVE";
   return "TRANSIT";
+}
+
+export type RouteMatrixMatch = {
+  placeId: string;
+  originId: string;
+  minutes: number;
+  distanceKm: number;
+};
+
+export async function getNearestTravelTimes({
+  origins,
+  destinations,
+  transport,
+}: {
+  origins: TravelPlace[];
+  destinations: TravelPlace[];
+  transport: TransportMode;
+}): Promise<RouteMatrixMatch[] | null> {
+  const key = apiKey();
+  if (!key || origins.length === 0 || destinations.length === 0) return null;
+
+  const limitedOrigins = origins.slice(0, 6);
+  // Transit matrices support up to 100 origin-destination elements. Keeping the
+  // same bound for every mode also makes the recommendation cost predictable.
+  const maxDestinations = Math.max(1, Math.floor(96 / limitedOrigins.length));
+  const limitedDestinations = destinations.slice(0, maxDestinations);
+  const response = await fetch(
+    "https://routes.googleapis.com/distanceMatrix/v2:computeRouteMatrix",
+    {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "X-Goog-Api-Key": key,
+        "X-Goog-FieldMask": [
+          "originIndex",
+          "destinationIndex",
+          "duration",
+          "distanceMeters",
+          "status",
+          "condition",
+        ].join(","),
+      },
+      body: JSON.stringify({
+        origins: limitedOrigins.map((place) => ({ waypoint: waypoint(place) })),
+        destinations: limitedDestinations.map((place) => ({ waypoint: waypoint(place) })),
+        travelMode: travelMode(transport),
+        ...(transport === "driving" ? { routingPreference: "TRAFFIC_AWARE" } : {}),
+        languageCode: "ko",
+        regionCode: "JP",
+        units: "METRIC",
+      }),
+    },
+  );
+
+  const data = (await response.json().catch(() => [])) as RouteMatrixElement[] | {
+    error?: { status?: string };
+  };
+  if (!response.ok || !Array.isArray(data)) {
+    const reason = !Array.isArray(data) && data.error?.status
+      ? data.error.status
+      : `HTTP_${response.status}`;
+    throw new Error(`GOOGLE_ROUTE_MATRIX_${reason}`);
+  }
+
+  const bestByDestination = new Map<number, RouteMatrixElement>();
+  data.forEach((element) => {
+    if (
+      element.condition !== "ROUTE_EXISTS" ||
+      typeof element.originIndex !== "number" ||
+      typeof element.destinationIndex !== "number"
+    ) return;
+    const current = bestByDestination.get(element.destinationIndex);
+    if (!current || secondsToMinutes(element.duration) < secondsToMinutes(current.duration)) {
+      bestByDestination.set(element.destinationIndex, element);
+    }
+  });
+
+  return limitedDestinations.flatMap((place, destinationIndex) => {
+    const best = bestByDestination.get(destinationIndex);
+    if (!best || typeof best.originIndex !== "number") return [];
+    const origin = limitedOrigins[best.originIndex];
+    if (!origin) return [];
+    return [{
+      placeId: place.id,
+      originId: origin.id,
+      minutes: secondsToMinutes(best.duration),
+      distanceKm: Number(((best.distanceMeters ?? 0) / 1_000).toFixed(1)),
+    }];
+  });
 }
 
 export async function optimizeDayWithGoogle({

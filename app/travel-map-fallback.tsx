@@ -12,11 +12,13 @@ type MapLibreModule = typeof import("maplibre-gl");
 
 export default function TravelMapFallback({
   places,
+  startPlace,
   activePlaceId,
   center,
   onSelect,
 }: {
   places: TravelPlace[];
+  startPlace?: TravelPlace | null;
   activePlaceId: string;
   center: [number, number];
   onSelect: (placeId: string) => void;
@@ -27,6 +29,7 @@ export default function TravelMapFallback({
   const markersRef = useRef<MapLibreMarker[]>([]);
   const loadedRef = useRef(false);
   const placesRef = useRef(places);
+  const startPlaceRef = useRef(startPlace);
   const activeRef = useRef(activePlaceId);
   const centerRef = useRef(center);
   const onSelectRef = useRef(onSelect);
@@ -37,18 +40,33 @@ export default function TravelMapFallback({
     if (!map || !maplibre || !loadedRef.current) return;
 
     const currentPlaces = placesRef.current;
+    const currentStartPlace = startPlaceRef.current;
+    const routePlaces = currentStartPlace
+      ? [currentStartPlace, ...currentPlaces]
+      : currentPlaces;
     const source = map.getSource("momotabi-route") as GeoJSONSource | undefined;
     source?.setData({
       type: "Feature",
       properties: {},
       geometry: {
         type: "LineString",
-        coordinates: currentPlaces.map((place) => [place.longitude, place.latitude]),
+        coordinates: routePlaces.map((place) => [place.longitude, place.latitude]),
       },
     });
 
     markersRef.current.forEach((marker) => marker.remove());
-    markersRef.current = currentPlaces.map((place, index) => {
+    const startMarker = currentStartPlace
+      ? (() => {
+          const marker = document.createElement("div");
+          marker.className = "map-hotel-marker";
+          marker.textContent = "宿";
+          marker.setAttribute("aria-label", `${currentStartPlace.name}, 숙소 또는 출발지`);
+          return new maplibre.Marker({ element: marker, anchor: "center" })
+            .setLngLat([currentStartPlace.longitude, currentStartPlace.latitude])
+            .addTo(map);
+        })()
+      : null;
+    const placeMarkers = currentPlaces.map((place, index) => {
       const markerButton = document.createElement("button");
       markerButton.type = "button";
       markerButton.className = `map-route-marker${place.id === activeRef.current ? " is-active" : ""}`;
@@ -59,10 +77,11 @@ export default function TravelMapFallback({
         .setLngLat([place.longitude, place.latitude])
         .addTo(map);
     });
+    markersRef.current = startMarker ? [startMarker, ...placeMarkers] : placeMarkers;
 
-    if (currentPlaces.length > 0) {
+    if (routePlaces.length > 0) {
       const bounds = new maplibre.LngLatBounds();
-      currentPlaces.forEach((place) => bounds.extend([place.longitude, place.latitude]));
+      routePlaces.forEach((place) => bounds.extend([place.longitude, place.latitude]));
       map.fitBounds(bounds, { padding: 92, maxZoom: 13.5, duration: 550 });
     } else {
       map.jumpTo({ center: centerRef.current, zoom: 11 });
@@ -129,11 +148,12 @@ export default function TravelMapFallback({
 
   useEffect(() => {
     placesRef.current = places;
+    startPlaceRef.current = startPlace;
     activeRef.current = activePlaceId;
     centerRef.current = center;
     onSelectRef.current = onSelect;
     renderRoute();
-  }, [places, activePlaceId, center, onSelect, renderRoute]);
+  }, [places, startPlace, activePlaceId, center, onSelect, renderRoute]);
 
   return (
     <div

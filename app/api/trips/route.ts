@@ -1,6 +1,9 @@
 import { getSession } from "@/lib/auth";
 import {
+  deleteCourse,
+  duplicateCourse,
   getSavedCourses,
+  renameCourse,
   saveCourse,
 } from "@/lib/travel-service";
 import {
@@ -32,7 +35,16 @@ export async function POST(request: Request) {
     dayCount?: unknown;
     placeIds?: unknown;
     placeSnapshots?: unknown;
+    duplicateId?: unknown;
   } | null;
+  if (body && typeof body.duplicateId === "string") {
+    if (!/^[A-Za-z0-9-]{1,80}$/.test(body.duplicateId)) {
+      return Response.json({ error: "INVALID_REQUEST" }, { status: 400 });
+    }
+    const id = await duplicateCourse({ userId: user.id, itineraryId: body.duplicateId });
+    if (!id) return Response.json({ error: "NOT_FOUND" }, { status: 404 });
+    return Response.json({ id }, { status: 201 });
+  }
   if (!body || typeof body.regionId !== "string" || !isTravelStyle(body.style)) {
     return Response.json({ error: "INVALID_REQUEST" }, { status: 400 });
   }
@@ -73,4 +85,44 @@ export async function POST(request: Request) {
     }
     throw error;
   }
+}
+
+export async function PATCH(request: Request) {
+  const user = await requireUser(request);
+  if (!user) return Response.json({ error: "UNAUTHORIZED" }, { status: 401 });
+  const body = (await request.json().catch(() => null)) as {
+    id?: unknown;
+    title?: unknown;
+  } | null;
+  if (
+    !body ||
+    typeof body.id !== "string" ||
+    !/^[A-Za-z0-9-]{1,80}$/.test(body.id) ||
+    typeof body.title !== "string" ||
+    body.title.trim().length === 0 ||
+    body.title.length > 80
+  ) {
+    return Response.json({ error: "INVALID_REQUEST" }, { status: 400 });
+  }
+  const updated = await renameCourse({
+    userId: user.id,
+    itineraryId: body.id,
+    title: body.title,
+  });
+  return updated
+    ? Response.json({ ok: true })
+    : Response.json({ error: "NOT_FOUND" }, { status: 404 });
+}
+
+export async function DELETE(request: Request) {
+  const user = await requireUser(request);
+  if (!user) return Response.json({ error: "UNAUTHORIZED" }, { status: 401 });
+  const body = (await request.json().catch(() => null)) as { id?: unknown } | null;
+  if (!body || typeof body.id !== "string" || !/^[A-Za-z0-9-]{1,80}$/.test(body.id)) {
+    return Response.json({ error: "INVALID_REQUEST" }, { status: 400 });
+  }
+  const deleted = await deleteCourse({ userId: user.id, itineraryId: body.id });
+  return deleted
+    ? Response.json({ ok: true })
+    : Response.json({ error: "NOT_FOUND" }, { status: 404 });
 }

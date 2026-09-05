@@ -1,5 +1,5 @@
 import { recommendNearbyPlaces } from "@/lib/travel-service";
-import { isTravelStyle } from "@/lib/travel-types";
+import { isTransportMode, isTravelStyle } from "@/lib/travel-types";
 
 export const dynamic = "force-dynamic";
 
@@ -9,6 +9,7 @@ export async function POST(request: Request) {
     style?: unknown;
     anchorPlaceIds?: unknown;
     kind?: unknown;
+    transport?: unknown;
   } | null;
 
   if (
@@ -18,7 +19,8 @@ export async function POST(request: Request) {
     !Array.isArray(body.anchorPlaceIds) ||
     body.anchorPlaceIds.length === 0 ||
     body.anchorPlaceIds.some((id) => typeof id !== "string") ||
-    (body.kind !== undefined && body.kind !== "attractions" && body.kind !== "food")
+    (body.kind !== undefined && body.kind !== "attractions" && body.kind !== "food") ||
+    (body.transport !== undefined && !isTransportMode(body.transport))
   ) {
     return Response.json({ error: "INVALID_REQUEST" }, { status: 400 });
   }
@@ -29,6 +31,7 @@ export async function POST(request: Request) {
       style: body.style,
       anchorPlaceIds: [...new Set(body.anchorPlaceIds)].slice(0, 6),
       kind: body.kind === "food" ? "food" : "attractions",
+      transport: isTransportMode(body.transport) ? body.transport : "transit",
     });
     return Response.json(result);
   } catch (error) {

@@ -1,4 +1,5 @@
 import { providerAvailability } from "@/lib/auth";
+import Link from "next/link";
 import SocialLogin from "./social-login";
 
 export const dynamic = "force-dynamic";
@@ -7,13 +8,13 @@ export default function LoginPage() {
   return (
     <main className="auth-page">
       <header className="auth-header">
-        <a className="auth-brand" href="/#top" aria-label="모모타비 홈">
+        <Link className="auth-brand" href="/#top" aria-label="모모타비 홈">
           <span className="brand-mark">も</span>
           <span>MOMOTABI</span>
-        </a>
-        <a className="auth-home-link" href="/#top">
+        </Link>
+        <Link className="auth-home-link" href="/#top">
           여행 둘러보기 <span aria-hidden="true">↗</span>
-        </a>
+        </Link>
       </header>
 
       <div className="auth-content">

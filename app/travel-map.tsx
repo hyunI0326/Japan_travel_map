@@ -35,6 +35,7 @@ function loadGoogleMaps(apiKey: string) {
 type TravelMapProps = {
   apiKey: string;
   places: TravelPlace[];
+  startPlace?: TravelPlace | null;
   activePlaceId: string;
   center: [number, number];
   onSelect: (placeId: string) => void;
@@ -90,6 +91,7 @@ export default function TravelMap(props: TravelMapProps) {
     return (
       <TravelMapFallback
         places={props.places}
+        startPlace={props.startPlace}
         activePlaceId={props.activePlaceId}
         center={props.center}
         onSelect={props.onSelect}
@@ -108,6 +110,7 @@ function getMapViewportPadding() {
 function GoogleTravelMap({
   apiKey,
   places,
+  startPlace,
   activePlaceId,
   center,
   onSelect,
@@ -121,6 +124,7 @@ function GoogleTravelMap({
   >(null);
   const boundsRef = useRef<typeof google.maps.LatLngBounds | null>(null);
   const placesRef = useRef(places);
+  const startPlaceRef = useRef(startPlace);
   const activeRef = useRef(activePlaceId);
   const centerRef = useRef(center);
   const onSelectRef = useRef(onSelect);
@@ -134,9 +138,13 @@ function GoogleTravelMap({
     if (!map || !route || !AdvancedMarkerElement || !LatLngBounds) return;
 
     const currentPlaces = placesRef.current;
+    const currentStartPlace = startPlaceRef.current;
+    const routePlaces = currentStartPlace
+      ? [currentStartPlace, ...currentPlaces]
+      : currentPlaces;
     route.setPath(
-      currentPlaces.length > 1
-        ? currentPlaces.map((place) => ({
+      routePlaces.length > 1
+        ? routePlaces.map((place) => ({
             lat: place.latitude,
             lng: place.longitude,
           }))
@@ -146,7 +154,22 @@ function GoogleTravelMap({
     markersRef.current.forEach((marker) => {
       marker.map = null;
     });
-    markersRef.current = currentPlaces.map((place, index) => {
+    const startMarker = currentStartPlace
+      ? (() => {
+          const marker = document.createElement("div");
+          marker.className = "map-hotel-marker";
+          marker.textContent = "宿";
+          marker.setAttribute("aria-label", `${currentStartPlace.name}, 숙소 또는 출발지`);
+          return new AdvancedMarkerElement({
+            map,
+            position: { lat: currentStartPlace.latitude, lng: currentStartPlace.longitude },
+            title: `${currentStartPlace.name} · 출발지`,
+            content: marker,
+            zIndex: 900,
+          });
+        })()
+      : null;
+    const placeMarkers = currentPlaces.map((place, index) => {
       const markerButton = document.createElement("button");
       markerButton.type = "button";
       markerButton.className = `map-route-marker${
@@ -164,23 +187,24 @@ function GoogleTravelMap({
         zIndex: place.id === activeRef.current ? 1000 : index + 1,
       });
     });
+    markersRef.current = startMarker ? [startMarker, ...placeMarkers] : placeMarkers;
 
-    if (currentPlaces.length === 1) {
+    if (routePlaces.length === 1) {
       map.setCenter({
-        lat: currentPlaces[0].latitude,
-        lng: currentPlaces[0].longitude,
+        lat: routePlaces[0].latitude,
+        lng: routePlaces[0].longitude,
       });
       map.setZoom(14);
-      const padding = getViewportPadding();
+      const padding = getMapViewportPadding();
       if (typeof padding !== "number") {
         map.panBy(-(padding.left - padding.right) / 2, 0);
       }
-    } else if (currentPlaces.length > 1) {
+    } else if (routePlaces.length > 1) {
       const bounds = new LatLngBounds();
-      currentPlaces.forEach((place) =>
+      routePlaces.forEach((place) =>
         bounds.extend({ lat: place.latitude, lng: place.longitude }),
       );
-      map.fitBounds(bounds, getViewportPadding());
+      map.fitBounds(bounds, getMapViewportPadding());
     } else {
       map.setCenter({ lat: centerRef.current[1], lng: centerRef.current[0] });
       map.setZoom(11);
@@ -248,11 +272,12 @@ function GoogleTravelMap({
 
   useEffect(() => {
     placesRef.current = places;
+    startPlaceRef.current = startPlace;
     activeRef.current = activePlaceId;
     centerRef.current = center;
     onSelectRef.current = onSelect;
     renderRoute();
-  }, [places, activePlaceId, center, onSelect, renderRoute]);
+  }, [places, startPlace, activePlaceId, center, onSelect, renderRoute]);
 
   return (
     <div className="map-canvas" role="region" aria-label="추천 여행 코스 Google 지도">

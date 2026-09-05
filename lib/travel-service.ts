@@ -1,7 +1,11 @@
 import { ensureDatabase } from "@/db/init";
 import { getD1 } from "@/db";
 import { mustVisitPlaceIdsByRegion } from "@/db/travel-seed";
-import { searchGoogleNearbyPlaces } from "@/lib/google-places";
+import {
+  searchGoogleNearbyPlaces,
+  searchGooglePlacesByText,
+} from "@/lib/google-places";
+import { getNearestTravelTimes } from "@/lib/google-routes";
 import {
   buildCustomCourse,
   calculateDistanceKm,
@@ -9,6 +13,7 @@ import {
   type PlaceCatalog,
   type PlaceRecommendation,
   type RecommendationKind,
+  type TransportMode,
   type TravelCourse,
   type TravelPlace,
   type TravelRegion,
@@ -129,11 +134,13 @@ export async function recommendNearbyPlaces({
   anchorPlaceIds,
   style,
   kind = "attractions",
+  transport = "transit",
 }: {
   regionId: string;
   anchorPlaceIds: string[];
   style: TravelStyle;
   kind?: RecommendationKind;
+  transport?: TransportMode;
 }): Promise<{
   recommendations: PlaceRecommendation[];
   provider: "google" | "catalog";
@@ -150,7 +157,12 @@ export async function recommendNearbyPlaces({
       kind,
     });
     if (googleRecommendations?.length) {
-      return { recommendations: googleRecommendations, provider: "google" };
+      const recommendations = await addTravelTimes({
+        recommendations: googleRecommendations,
+        anchors: anchors.map(toTravelPlace),
+        transport,
+      });
+      return { recommendations, provider: "google" };
     }
   } catch (error) {
     const reason = error instanceof Error ? error.message : "GOOGLE_PLACES_UNKNOWN";
@@ -186,6 +198,75 @@ export async function recommendNearbyPlaces({
     }));
 
   return { recommendations, provider: "catalog" };
+}
+
+async function addTravelTimes({
+  recommendations,
+  anchors,
+  transport,
+}: {
+  recommendations: PlaceRecommendation[];
+  anchors: TravelPlace[];
+  transport: TransportMode;
+}) {
+  try {
+    const matches = await getNearestTravelTimes({
+      origins: anchors,
+      destinations: recommendations,
+      transport,
+    });
+    if (!matches?.length) return recommendations;
+    const anchorNames = new Map(anchors.map((anchor) => [anchor.id, anchor.name]));
+    const matchByPlaceId = new Map(matches.map((match) => [match.placeId, match]));
+    return recommendations
+      .map((place) => {
+        const match = matchByPlaceId.get(place.id);
+        return match
+          ? {
+              ...place,
+              nearAnchorName: anchorNames.get(match.originId) ?? place.nearAnchorName,
+              travelMinutes: match.minutes,
+              travelDistanceKm: match.distanceKm,
+              travelMode: transport,
+            }
+          : place;
+      })
+      .sort((a, b) =>
+        (a.travelMinutes ?? Number.POSITIVE_INFINITY) -
+          (b.travelMinutes ?? Number.POSITIVE_INFINITY) ||
+        a.distanceKm - b.distanceKm,
+      );
+  } catch (error) {
+    console.error(
+      "Google route matrix failed; keeping distance ranking.",
+      error instanceof Error ? error.message : "GOOGLE_ROUTE_MATRIX_UNKNOWN",
+    );
+    return recommendations;
+  }
+}
+
+export async function searchPlaces({
+  regionId,
+  query,
+  anchorPlaceIds,
+  purpose,
+  transport,
+}: {
+  regionId: string;
+  query: string;
+  anchorPlaceIds: string[];
+  purpose: "place" | "lodging";
+  transport: TransportMode;
+}) {
+  const { region, placeRows } = await getRegionAndPlaceRows(regionId);
+  const anchorSet = new Set(anchorPlaceIds);
+  const anchors = placeRows
+    .filter((place) => anchorSet.has(place.id))
+    .map(toTravelPlace);
+  const results = await searchGooglePlacesByText({ query, region, anchors, purpose });
+  if (!results) return [];
+  if (purpose === "lodging" || anchors.length === 0) return results;
+  return addTravelTimes({ recommendations: results, anchors, transport });
 }
 
 function scorePlace(place: PlaceRow, style: TravelStyle) {
@@ -487,4 +568,117 @@ export async function getSavedCourses(userId: string): Promise<TravelCourse[]> {
     });
   }
   return [...courses.values()];
+}
+
+export async function renameCourse({
+  userId,
+  itineraryId,
+  title,
+}: {
+  userId: string;
+  itineraryId: string;
+  title: string;
+}) {
+  await ensureDatabase();
+  const result = await getD1()
+    .prepare(
+      `UPDATE "itinerary"
+       SET "title" = ?, "updatedAt" = ?
+       WHERE "id" = ? AND "userId" = ?`,
+    )
+    .bind(title.trim(), Date.now(), itineraryId, userId)
+    .run();
+  return (result.meta.changes ?? 0) > 0;
+}
+
+export async function deleteCourse({
+  userId,
+  itineraryId,
+}: {
+  userId: string;
+  itineraryId: string;
+}) {
+  await ensureDatabase();
+  const result = await getD1()
+    .prepare(`DELETE FROM "itinerary" WHERE "id" = ? AND "userId" = ?`)
+    .bind(itineraryId, userId)
+    .run();
+  return (result.meta.changes ?? 0) > 0;
+}
+
+export async function duplicateCourse({
+  userId,
+  itineraryId,
+}: {
+  userId: string;
+  itineraryId: string;
+}) {
+  await ensureDatabase();
+  const database = getD1();
+  const source = await database
+    .prepare(
+      `SELECT "regionId", "title", "style", "dayCount"
+       FROM "itinerary" WHERE "id" = ? AND "userId" = ? LIMIT 1`,
+    )
+    .bind(itineraryId, userId)
+    .first<{
+      regionId: string;
+      title: string;
+      style: TravelStyle;
+      dayCount: number;
+    }>();
+  if (!source) return null;
+  const itemResult = await database
+    .prepare(
+      `SELECT "placeId", "dayNumber", "position", "scheduledTime"
+       FROM "itineraryItem" WHERE "itineraryId" = ?
+       ORDER BY "dayNumber", "position"`,
+    )
+    .bind(itineraryId)
+    .all<{
+      placeId: string;
+      dayNumber: number;
+      position: number;
+      scheduledTime: string;
+    }>();
+  const newId = crypto.randomUUID();
+  const now = Date.now();
+  const copyTitle = `${source.title.replace(/ 복사본(?: \d+)?$/, "")} 복사본`.slice(0, 80);
+  const statements = [
+    database
+      .prepare(
+        `INSERT INTO "itinerary"
+          ("id", "userId", "regionId", "title", "style", "dayCount", "createdAt", "updatedAt")
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .bind(
+        newId,
+        userId,
+        source.regionId,
+        copyTitle,
+        source.style,
+        source.dayCount,
+        now,
+        now,
+      ),
+    ...itemResult.results.map((item) =>
+      database
+        .prepare(
+          `INSERT INTO "itineraryItem"
+            ("id", "itineraryId", "placeId", "dayNumber", "position", "scheduledTime", "createdAt")
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        )
+        .bind(
+          crypto.randomUUID(),
+          newId,
+          item.placeId,
+          item.dayNumber,
+          item.position,
+          item.scheduledTime,
+          now,
+        ),
+    ),
+  ];
+  await database.batch(statements);
+  return newId;
 }

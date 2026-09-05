@@ -55,6 +55,9 @@ export type TravelPlace = {
 export type PlaceRecommendation = TravelPlace & {
   distanceKm: number;
   nearAnchorName: string;
+  travelMinutes?: number;
+  travelDistanceKm?: number;
+  travelMode?: TransportMode;
   photoUrl?: string;
   photoAttribution?: { displayName: string; uri?: string };
   photoGoogleMapsUri?: string;
@@ -181,6 +184,10 @@ export const transportLabels: Record<TransportMode, string> = {
 
 export function isTravelStyle(value: unknown): value is TravelStyle {
   return typeof value === "string" && travelStyles.includes(value as TravelStyle);
+}
+
+export function isTransportMode(value: unknown): value is TransportMode {
+  return typeof value === "string" && transportModes.includes(value as TransportMode);
 }
 
 export function isGooglePlaceSnapshot(value: unknown): value is TravelPlace {
