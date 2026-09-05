@@ -8,6 +8,7 @@ export async function POST(request: Request) {
     regionId?: unknown;
     style?: unknown;
     anchorPlaceIds?: unknown;
+    kind?: unknown;
   } | null;
 
   if (
@@ -16,7 +17,8 @@ export async function POST(request: Request) {
     !isTravelStyle(body.style) ||
     !Array.isArray(body.anchorPlaceIds) ||
     body.anchorPlaceIds.length === 0 ||
-    body.anchorPlaceIds.some((id) => typeof id !== "string")
+    body.anchorPlaceIds.some((id) => typeof id !== "string") ||
+    (body.kind !== undefined && body.kind !== "attractions" && body.kind !== "food")
   ) {
     return Response.json({ error: "INVALID_REQUEST" }, { status: 400 });
   }
@@ -26,6 +28,7 @@ export async function POST(request: Request) {
       regionId: body.regionId,
       style: body.style,
       anchorPlaceIds: [...new Set(body.anchorPlaceIds)].slice(0, 6),
+      kind: body.kind === "food" ? "food" : "attractions",
     });
     return Response.json(result);
   } catch (error) {

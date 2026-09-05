@@ -163,6 +163,9 @@ h1 { margin: 16px 0 18px; font-family: Georgia, "Nanum Myeongjo", serif; font-si
 .style-switcher button { min-width: 0; padding: 10px 5px; border: 1px solid var(--line); border-radius: 9px; color: #64748b; background: white; cursor: pointer; font-size: 9px; font-weight: 800; }
 .style-switcher button:hover, .style-switcher button.selected { border-color: var(--red); color: var(--red); background: var(--surface-strong); }
 .style-switcher.compact { margin-bottom: 10px; }
+.recommend-kind { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 12px; padding: 4px; border-radius: 11px; background: #eef4fc; }
+.recommend-kind button { min-height: 36px; border: 0; border-radius: 8px; color: #64748b; background: transparent; cursor: pointer; font-size: 11px; font-weight: 850; }
+.recommend-kind button.selected { color: #1d4ed8; background: white; box-shadow: 0 4px 14px rgba(30, 64, 175, .1); }
 .day-count-field { display: grid; gap: 9px; }
 .day-count-field select { width: 100%; min-height: 37px; padding: 0 10px; border: 1px solid var(--line); border-radius: 9px; color: var(--ink); background: white; font-size: 11px; font-weight: 800; }
 .recommend-button { width: 100%; display: flex; align-items: center; justify-content: space-between; margin-top: 18px; padding: 14px 16px; border: 0; border-radius: 11px; color: white; background: linear-gradient(135deg, #2563eb, #1d4ed8); box-shadow: 0 10px 24px rgba(37, 99, 235, .2); cursor: pointer; font-size: 11px; font-weight: 900; transition: background .2s ease, transform .2s ease; }
@@ -214,16 +217,104 @@ h1 { margin: 16px 0 18px; font-family: Georgia, "Nanum Myeongjo", serif; font-si
 
 .course-builder { margin-top: 36px; padding: 24px; border: 1px solid var(--line); border-radius: 18px; background: white; box-shadow: 0 16px 44px rgba(30, 64, 175, .06); }
 .course-place-list { display: grid; gap: 7px; }
-.course-place-list > div { display: grid; grid-template-columns: minmax(0, 1fr) 38px; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: white; transition: border-color .2s ease, transform .2s ease; }
+.course-place-list > div { display: grid; grid-template-columns: 26px minmax(0, 1fr) auto; align-items: stretch; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: white; transition: border-color .2s ease, transform .2s ease, opacity .2s ease; }
 .course-place-list > div.active { transform: translateX(3px); border-color: var(--red); }
+.course-place-list > div.is-locked { border-color: #93c5fd; background: #f8fbff; }
+.course-place-list > div.is-dragging { opacity: .45; }
+.course-drag { display: grid; place-items: center; color: #94a3b8; background: #f8fafc; cursor: grab; font-size: 15px; }
 .course-place-main { min-width: 0; display: grid; grid-template-columns: 34px minmax(0, 1fr); align-items: center; gap: 10px; padding: 12px; border: 0; color: var(--ink); background: transparent; cursor: pointer; text-align: left; }
 .course-place-main > span { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 50%; color: white; background: var(--green); font-family: Georgia, serif; font-size: 9px; }
 .course-place-list > div.active .course-place-main > span { background: var(--red); }
 .course-place-main div { min-width: 0; display: grid; gap: 3px; }
 .course-place-main small { color: #858c87; font-size: 8px; font-weight: 800; }
 .course-place-main strong { overflow: hidden; font-family: Georgia, "Nanum Myeongjo", serif; font-size: 15px; text-overflow: ellipsis; white-space: nowrap; }
-.course-place-remove { border: 0; border-left: 1px solid #e0d9ce; color: #929791; background: transparent; cursor: pointer; font-size: 20px; }
-.course-place-remove:hover { color: var(--red); background: var(--surface-strong); }
+.course-place-actions { display: grid; grid-template-columns: repeat(4, 30px); border-left: 1px solid var(--line); }
+.course-place-actions button { border: 0; border-left: 1px solid #eef2f7; color: #64748b; background: transparent; cursor: pointer; font-size: 13px; font-weight: 850; }
+.course-place-actions button:first-child { border-left: 0; color: #2563eb; }
+.course-place-actions button.selected { color: white; background: #2563eb; }
+.course-place-actions button:hover:not(:disabled) { color: var(--red); background: var(--surface-strong); }
+.course-place-actions button:disabled { cursor: default; opacity: .25; }
+.course-place-actions .course-place-remove { color: #929791; font-size: 20px; }
+.course-edit-tip { margin: 10px 2px 0; color: #64748b; font-size: 10px; line-height: 1.55; }
+
+.place-detail-card { overflow: hidden; display: grid; grid-template-columns: 150px minmax(0, 1fr); margin-top: 18px; border: 1px solid #cdddf4; border-radius: 15px; background: #f8fbff; animation: step-reveal .35s ease both; }
+.place-detail-photo { position: relative; min-height: 188px; overflow: hidden; background: #dbeafe; }
+.place-detail-photo img { width: 100%; height: 100%; object-fit: cover; }
+.place-detail-photo small { position: absolute; left: 7px; bottom: 7px; max-width: calc(100% - 14px); padding: 4px 6px; overflow: hidden; border-radius: 5px; color: white; background: rgba(15, 23, 42, .72); font-size: 7px; text-overflow: ellipsis; white-space: nowrap; }
+.place-detail-copy { min-width: 0; padding: 17px; }
+.place-detail-copy > span { color: var(--red); font-size: 8px; font-weight: 900; letter-spacing: .16em; }
+.place-detail-copy h3 { margin: 5px 0 9px; font-family: Georgia, "Nanum Myeongjo", serif; font-size: 19px; font-weight: 600; }
+.place-detail-stats { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.place-detail-stats strong { color: #b45309; font-size: 12px; }
+.place-detail-stats small { color: #64748b; font-size: 10px; }
+.place-detail-copy > p { margin: 10px 0; color: #64748b; font-size: 11px; line-height: 1.55; }
+.opening-badge { display: inline-flex; padding: 6px 8px; border-radius: 7px; color: #166534; background: #dcfce7; font-size: 9px; font-weight: 850; }
+.opening-badge.is-warning { color: #9a3412; background: #ffedd5; }
+.place-detail-copy details { margin-top: 10px; color: #475569; font-size: 10px; }
+.place-detail-copy summary { cursor: pointer; font-weight: 850; }
+.place-detail-copy ul { display: grid; gap: 3px; margin: 8px 0 0; padding-left: 16px; line-height: 1.45; }
+.place-detail-links { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 12px; }
+.place-detail-links a { padding: 7px 9px; border: 1px solid #bdd3f5; border-radius: 7px; color: #1d4ed8; background: white; font-size: 9px; font-weight: 850; text-decoration: none; }
+.detail-loading, .detail-unavailable { grid-column: 1 / -1; min-height: 96px; display: flex; align-items: center; justify-content: center; gap: 10px; padding: 20px; color: #64748b; font-size: 11px; text-align: center; }
+.detail-loading i { width: 17px; height: 17px; border: 2px solid #bfdbfe; border-top-color: #2563eb; border-radius: 50%; animation: step-loading-spin .8s linear infinite; }
+.detail-unavailable { flex-direction: column; }
+.detail-unavailable strong { color: var(--ink); font-family: Georgia, serif; font-size: 17px; }
+
+.itinerary-builder { margin-top: 22px; padding: 24px; border: 1px solid #cbdcf4; border-radius: 18px; background: linear-gradient(160deg, #f8fbff 0%, #fff 62%); box-shadow: 0 16px 44px rgba(30, 64, 175, .07); }
+.itinerary-intro { margin: -4px 0 18px; color: #64748b; font-size: 12px; line-height: 1.7; }
+.preference-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.preference-grid label { display: grid; gap: 7px; }
+.preference-grid label.wide { grid-column: 1 / -1; }
+.preference-grid label > span, .preference-group legend { color: #475569; font-size: 11px; font-weight: 850; }
+.preference-grid input, .preference-grid select { width: 100%; min-height: 42px; padding: 0 11px; border: 1px solid #cbd9eb; border-radius: 9px; color: var(--ink); background: white; font-size: 12px; }
+.preference-grid input:focus, .preference-grid select:focus { outline: 3px solid rgba(37, 99, 235, .15); border-color: #60a5fa; }
+.preference-group { min-width: 0; margin: 17px 0 0; padding: 0; border: 0; }
+.preference-group legend { margin-bottom: 8px; }
+.preference-group > div { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.preference-group button { min-height: 38px; padding: 6px; border: 1px solid #d7e2f1; border-radius: 8px; color: #64748b; background: white; cursor: pointer; font-size: 10px; font-weight: 800; }
+.preference-group button:hover, .preference-group button.selected { border-color: #60a5fa; color: #1d4ed8; background: #eff6ff; }
+.meal-toggle { display: flex; align-items: start; gap: 10px; margin-top: 17px; padding: 13px; border: 1px solid #dce7f5; border-radius: 10px; background: white; cursor: pointer; }
+.meal-toggle input { width: 17px; height: 17px; margin: 1px 0 0; accent-color: #2563eb; }
+.meal-toggle span { display: grid; gap: 4px; }
+.meal-toggle strong { font-size: 11px; }
+.meal-toggle small { color: #64748b; font-size: 10px; line-height: 1.45; }
+.itinerary-generate { width: 100%; min-height: 50px; display: flex; align-items: center; justify-content: space-between; margin-top: 16px; padding: 0 17px; border: 0; border-radius: 11px; color: white; background: linear-gradient(135deg, #0f3d91, #2563eb); box-shadow: 0 12px 30px rgba(37, 99, 235, .22); cursor: pointer; font-size: 12px; font-weight: 900; }
+.itinerary-generate:hover:not(:disabled) { transform: translateY(-1px); }
+.itinerary-generate:disabled { cursor: wait; opacity: .55; }
+.itinerary-generate b { color: #bfdbfe; font-size: 18px; }
+.itinerary-help { margin: 9px 0 0; color: #64748b; font-size: 10px; text-align: center; }
+.itinerary-result { margin-top: 20px; animation: step-reveal .4s ease both; }
+.itinerary-result-head { display: flex; align-items: end; justify-content: space-between; gap: 12px; padding: 15px 0 12px; border-top: 1px solid #dbe7f5; }
+.itinerary-result-head div { display: grid; gap: 4px; }
+.itinerary-result-head span { color: #2563eb; font-size: 8px; font-weight: 900; letter-spacing: .15em; }
+.itinerary-result-head strong { font-family: Georgia, "Nanum Myeongjo", serif; font-size: 19px; }
+.itinerary-result-head small { color: #64748b; font-size: 9px; }
+.plan-warnings { display: grid; gap: 5px; margin-bottom: 11px; }
+.plan-warnings p { margin: 0; padding: 8px 10px; border-radius: 8px; color: #92400e; background: #fff7ed; font-size: 9px; line-height: 1.5; }
+.itinerary-days { display: grid; gap: 12px; }
+.itinerary-day { overflow: hidden; border: 1px solid #d7e3f2; border-radius: 12px; background: white; }
+.itinerary-day > header { display: flex; align-items: end; justify-content: space-between; gap: 10px; padding: 14px 15px; border-bottom: 1px solid #e7eef8; background: #f8fbff; }
+.itinerary-day > header div { display: grid; gap: 3px; }
+.itinerary-day > header span { color: #2563eb; font-size: 8px; font-weight: 900; letter-spacing: .14em; }
+.itinerary-day > header strong { font-size: 13px; }
+.itinerary-day > header small { color: #64748b; font-size: 9px; }
+.timeline { padding: 8px 13px 12px; }
+.timeline-item { position: relative; width: 100%; display: grid; grid-template-columns: 48px 22px minmax(0, 1fr); align-items: start; gap: 6px; padding: 10px 0; border: 0; color: var(--ink); background: transparent; text-align: left; }
+button.timeline-item { cursor: pointer; }
+button.timeline-item:hover div, button.timeline-item.active div { color: #1d4ed8; }
+.timeline-item time { padding-top: 2px; color: #475569; font-size: 10px; font-weight: 900; }
+.timeline-item > i { position: relative; z-index: 1; width: 18px; height: 18px; display: grid; place-items: center; border: 4px solid white; border-radius: 50%; background: #2563eb; box-shadow: 0 0 0 1px #93c5fd; color: white; font-size: 7px; font-style: normal; }
+.timeline-item:not(:last-child) > i::after { content: ""; position: absolute; z-index: -1; top: 15px; left: 7px; width: 2px; height: 42px; background: #cbdcf4; }
+.timeline-item > div { min-width: 0; display: grid; gap: 4px; transition: color .2s ease; }
+.timeline-item strong { overflow: hidden; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.timeline-item small { color: #64748b; font-size: 9px; }
+.timeline-item em { color: #b45309; font-size: 9px; font-style: normal; font-weight: 750; line-height: 1.45; }
+.timeline-item.is-meal > i { width: 22px; height: 22px; margin-left: -2px; border-width: 2px; background: #f59e0b; box-shadow: none; }
+.timeline-item.is-meal button { justify-self: start; padding: 0; border: 0; color: #b45309; background: transparent; cursor: pointer; font-size: 9px; font-weight: 850; }
+.export-actions { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; margin-top: 18px; }
+.export-actions button, .export-actions a { min-height: 40px; display: grid; place-items: center; padding: 8px; border: 1px solid #bfd3ef; border-radius: 8px; color: #1d4ed8; background: white; cursor: pointer; font-size: 9px; font-weight: 850; text-align: center; text-decoration: none; }
+.export-actions button:hover:not(:disabled), .export-actions a:hover { border-color: #2563eb; background: #eff6ff; }
+.export-actions button:disabled, .export-actions a[aria-disabled="true"] { pointer-events: none; opacity: .4; }
 .saved-courses { scroll-margin-top: 90px; margin-top: 36px; padding-top: 28px; border-top: 1px solid var(--line); }
 .saved-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; margin-bottom: 16px; }
 .saved-heading small { color: #8a928c; font-size: 9px; font-weight: 800; }
@@ -317,6 +408,16 @@ h1 { margin: 16px 0 18px; font-family: Georgia, "Nanum Myeongjo", serif; font-si
   .style-switcher { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .nearby-list article { align-items: start; }
   .nearby-list small { white-space: normal; }
+  .course-builder, .itinerary-builder { margin-inline: -8px; padding: 20px 14px; }
+  .course-place-list > div { grid-template-columns: 22px minmax(0, 1fr); }
+  .course-place-actions { grid-column: 1 / -1; grid-template-columns: repeat(4, 1fr); min-height: 34px; border-top: 1px solid var(--line); border-left: 0; }
+  .place-detail-card { grid-template-columns: 1fr; }
+  .place-detail-photo { min-height: 190px; max-height: 240px; }
+  .preference-grid { grid-template-columns: 1fr; }
+  .preference-grid label.wide { grid-column: auto; }
+  .preference-group > div { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .itinerary-day > header, .itinerary-result-head { align-items: start; flex-direction: column; }
+  .export-actions { grid-template-columns: 1fr; }
   .saved-list { grid-template-columns: 1fr; }
   .day-summary { align-items: flex-start; flex-direction: column; gap: 8px; }
   .stop-card { gap: 13px; padding: 17px 15px; }

@@ -1,7 +1,9 @@
 import { env } from "cloudflare:workers";
 import {
   calculateDistanceKm,
+  type PlaceDetails,
   type PlaceRecommendation,
+  type RecommendationKind,
   type TravelPlace,
   type TravelStyle,
 } from "@/lib/travel-types";
@@ -20,6 +22,25 @@ type GooglePlace = {
   formattedAddress?: string;
   location?: { latitude?: number; longitude?: number };
   googleMapsUri?: string;
+  websiteUri?: string;
+  rating?: number;
+  userRatingCount?: number;
+  priceLevel?: string;
+  currentOpeningHours?: {
+    openNow?: boolean;
+    weekdayDescriptions?: string[];
+  };
+  regularOpeningHours?: {
+    weekdayDescriptions?: string[];
+    periods?: Array<{
+      open?: { day?: number; hour?: number; minute?: number };
+      close?: { day?: number; hour?: number; minute?: number };
+    }>;
+  };
+  photos?: Array<{
+    name?: string;
+    authorAttributions?: Array<{ displayName?: string; uri?: string }>;
+  }>;
 };
 
 type GoogleNearbyResponse = {
@@ -35,8 +56,6 @@ const placeTypesByStyle: Record<TravelStyle, string[]> = {
     "historical_landmark",
     "museum",
     "park",
-    "restaurant",
-    "cafe",
   ],
   culture: [
     "tourist_attraction",
@@ -111,9 +130,11 @@ function suggestedTimeForStyle(style: TravelStyle) {
 export async function searchGoogleNearbyPlaces({
   anchors,
   style,
+  kind = "attractions",
 }: {
   anchors: TravelPlace[];
   style: TravelStyle;
+  kind?: RecommendationKind;
 }): Promise<PlaceRecommendation[] | null> {
   const apiKey = getApiKey();
   if (!apiKey) return null;
@@ -135,7 +156,9 @@ export async function searchGoogleNearbyPlaces({
       ].join(","),
     },
     body: JSON.stringify({
-      includedTypes: placeTypesByStyle[style],
+      includedTypes: placeTypesByStyle[
+        kind === "food" ? "food" : style === "food" ? "balanced" : style
+      ],
       maxResultCount: 20,
       rankPreference: "POPULARITY",
       languageCode: "ko",
@@ -173,8 +196,8 @@ export async function searchGoogleNearbyPlaces({
           place.primaryType?.replaceAll("_", " ") ||
           "추천 장소",
         description: place.formattedAddress?.trim() || "Google Maps 장소 정보",
-        suggestedTime: suggestedTimeForStyle(style),
-        durationMinutes: durationForStyle(style),
+        suggestedTime: suggestedTimeForStyle(kind === "food" ? "food" : style),
+        durationMinutes: durationForStyle(kind === "food" ? "food" : style),
         latitude,
         longitude,
         source: "google",
@@ -206,4 +229,124 @@ export async function searchGoogleNearbyPlaces({
     })
     .sort((a, b) => a.distanceKm - b.distanceKm)
     .slice(0, 8);
+}
+
+function openingPeriods(place: GooglePlace): PlaceDetails["periods"] {
+  return (place.regularOpeningHours?.periods ?? []).flatMap((period) => {
+    const open = period.open;
+    if (
+      typeof open?.day !== "number" ||
+      typeof open.hour !== "number" ||
+      typeof open.minute !== "number"
+    ) {
+      return [];
+    }
+    const close = period.close;
+    return [{
+      open: { day: open.day, hour: open.hour, minute: open.minute },
+      close:
+        typeof close?.day === "number" &&
+        typeof close.hour === "number" &&
+        typeof close.minute === "number"
+          ? { day: close.day, hour: close.hour, minute: close.minute }
+          : undefined,
+    }];
+  });
+}
+
+function toPlaceDetails(place: GooglePlace): PlaceDetails | null {
+  const googlePlaceId = place.id?.trim();
+  const name = place.displayName?.text?.trim();
+  if (!googlePlaceId || !name) return null;
+  const photo = place.photos?.[0];
+  const attribution = photo?.authorAttributions?.[0];
+  return {
+    googlePlaceId,
+    name,
+    address: place.formattedAddress?.trim() || "주소 정보 없음",
+    rating: place.rating,
+    userRatingCount: place.userRatingCount,
+    priceLevel: place.priceLevel,
+    openNow: place.currentOpeningHours?.openNow,
+    weekdayDescriptions:
+      place.currentOpeningHours?.weekdayDescriptions ??
+      place.regularOpeningHours?.weekdayDescriptions ??
+      [],
+    periods: openingPeriods(place),
+    websiteUri: place.websiteUri,
+    googleMapsUri: place.googleMapsUri,
+    photoUrl: photo?.name
+      ? `/api/place-photo?name=${encodeURIComponent(photo.name)}`
+      : undefined,
+    photoAttribution: attribution?.displayName
+      ? { displayName: attribution.displayName, uri: attribution.uri }
+      : undefined,
+  };
+}
+
+const detailsFieldMask = [
+  "id",
+  "displayName",
+  "formattedAddress",
+  "rating",
+  "userRatingCount",
+  "priceLevel",
+  "currentOpeningHours",
+  "regularOpeningHours",
+  "websiteUri",
+  "googleMapsUri",
+  "photos",
+].join(",");
+
+export async function getGooglePlaceDetails({
+  place,
+  regionName,
+}: {
+  place: TravelPlace;
+  regionName: string;
+}): Promise<PlaceDetails | null> {
+  const key = getApiKey();
+  if (!key) return null;
+
+  if (place.id.startsWith("google:")) {
+    const googlePlaceId = place.id.slice("google:".length);
+    const response = await fetch(
+      `https://places.googleapis.com/v1/places/${encodeURIComponent(googlePlaceId)}?languageCode=ko&regionCode=JP`,
+      {
+        headers: {
+          "X-Goog-Api-Key": key,
+          "X-Goog-FieldMask": detailsFieldMask,
+        },
+      },
+    );
+    if (!response.ok) throw new Error(`GOOGLE_PLACE_DETAILS_HTTP_${response.status}`);
+    return toPlaceDetails((await response.json()) as GooglePlace);
+  }
+
+  const response = await fetch("https://places.googleapis.com/v1/places:searchText", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "X-Goog-Api-Key": key,
+      "X-Goog-FieldMask": detailsFieldMask
+        .split(",")
+        .map((field) => `places.${field}`)
+        .join(","),
+    },
+    body: JSON.stringify({
+      textQuery: `${place.name} ${regionName} 일본`,
+      pageSize: 1,
+      languageCode: "ko",
+      regionCode: "JP",
+      locationBias: {
+        circle: {
+          center: { latitude: place.latitude, longitude: place.longitude },
+          radius: 2_000,
+        },
+      },
+    }),
+  });
+  if (!response.ok) throw new Error(`GOOGLE_PLACE_TEXT_SEARCH_HTTP_${response.status}`);
+  const data = (await response.json()) as GoogleNearbyResponse;
+  return data.places?.[0] ? toPlaceDetails(data.places[0]) : null;
 }

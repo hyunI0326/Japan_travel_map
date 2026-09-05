@@ -8,6 +8,7 @@ import {
   styleLabels,
   type PlaceCatalog,
   type PlaceRecommendation,
+  type RecommendationKind,
   type TravelCourse,
   type TravelPlace,
   type TravelRegion,
@@ -127,10 +128,12 @@ export async function recommendNearbyPlaces({
   regionId,
   anchorPlaceIds,
   style,
+  kind = "attractions",
 }: {
   regionId: string;
   anchorPlaceIds: string[];
   style: TravelStyle;
+  kind?: RecommendationKind;
 }): Promise<{
   recommendations: PlaceRecommendation[];
   provider: "google" | "catalog";
@@ -144,6 +147,7 @@ export async function recommendNearbyPlaces({
     const googleRecommendations = await searchGoogleNearbyPlaces({
       anchors: anchors.map(toTravelPlace),
       style,
+      kind,
     });
     if (googleRecommendations?.length) {
       return { recommendations: googleRecommendations, provider: "google" };
@@ -163,7 +167,8 @@ export async function recommendNearbyPlaces({
         }))
         .sort((a, b) => a.distance - b.distance)[0];
       const tags = place.styleTags.split(",");
-      const styleBoost = style !== "balanced" && tags.includes(style) ? 0.8 : 0;
+      const preferredStyle = kind === "food" ? "food" : style;
+      const styleBoost = preferredStyle !== "balanced" && tags.includes(preferredStyle) ? 0.8 : 0;
       return {
         ...place,
         distanceKm: Number(nearest.distance.toFixed(1)),
@@ -171,6 +176,7 @@ export async function recommendNearbyPlaces({
         rank: nearest.distance - styleBoost + place.sortOrder * 0.03,
       };
     })
+    .filter((place) => kind !== "food" || place.styleTags.split(",").includes("food"))
     .sort((a, b) => a.rank - b.rank)
     .slice(0, 8)
     .map((place) => ({
@@ -335,6 +341,7 @@ export async function saveCourse({
       region,
       places: selectedPlaces.map((place) => toTravelPlace(place!)),
       style,
+      dayCount,
     });
   } else {
     course = await recommendCourse({ regionId, style, dayCount });
