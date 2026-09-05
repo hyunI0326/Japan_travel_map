@@ -1164,6 +1164,13 @@ export default function TripPlanner({
       </header>
 
       <section className="route-panel" id="planner">
+        <nav className="resource-nav" aria-label="여행 정보와 운영 정책">
+          <Link href="/guide">일본 여행 가이드</Link>
+          <Link href="/about">서비스 소개</Link>
+          <Link href="/about#contact">문의</Link>
+          <Link href="/privacy">개인정보 처리방침</Link>
+          <Link href="/terms">이용약관</Link>
+        </nav>
         <div className="route-heading" key={catalog.region.id}>
           <div className="city-chip"><span className="city-dot" /> {catalog.region.nameEn} <b>{catalog.region.nameJp}</b></div>
           <p className="eyebrow">BUILD YOUR OWN ROUTE · {catalog.region.eyebrow}</p>
