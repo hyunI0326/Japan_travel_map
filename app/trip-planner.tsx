@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { useAuth } from "./auth-context";
 import TravelMap from "./travel-map";
 import { authClient } from "@/lib/auth-client";
@@ -1147,6 +1148,7 @@ export default function TripPlanner({
         <nav aria-label="주요 메뉴">
           <a className="section-link active" href="#planner">코스 만들기</a>
           <a className="section-link" href="#saved">내 코스</a>
+          <Link className="section-link" href="/guide">여행 가이드</Link>
           {user && (
             <button className={`save-button ${saveState === "saved" ? "is-saved" : ""}`} onClick={saveCurrentCourse} type="button" disabled={selectedPlaces.length === 0 || saveState === "saving"}>
               {saveState === "saving" ? "저장 중…" : saveState === "saved" ? "저장됨 ✓" : "이 코스 저장"}
@@ -1542,6 +1544,19 @@ export default function TripPlanner({
         </section>
         <aside className="tip-card" id="tips" data-reveal><span>LOCAL TIP</span><p><strong>{catalog.region.tipTitle}</strong> {catalog.region.tipText}</p></aside>
         <p className="disclaimer">Google 경로를 확인할 수 없는 장소만 직선거리 기준으로 표시돼요. 실제 운행 상황은 출발 전에 다시 확인해 주세요.</p>
+        <footer className="site-footer" aria-label="사이트 정보">
+          <div>
+            <Link className="footer-brand" href="/#top"><span className="brand-mark" aria-hidden="true">も</span><span><strong>MOMOTABI</strong><small>취향대로 만드는 일본 여행 코스</small></span></Link>
+            <p>관광지 선택을 출발점으로 가까운 장소와 이동 순서를 함께 살펴보는 여행 계획 도구입니다.</p>
+          </div>
+          <nav aria-label="정책 및 안내">
+            <Link href="/guide">여행 가이드</Link>
+            <Link href="/about">서비스 소개·문의</Link>
+            <Link href="/privacy">개인정보 처리방침</Link>
+            <Link href="/terms">이용약관</Link>
+          </nav>
+          <small>© 2026 MOMOTABI. 여행 전 운영시간과 교통편을 다시 확인해 주세요.</small>
+        </footer>
       </section>
 
       <section className="map-panel" aria-label={`${catalog.region.nameKo} 내 여행 코스 지도`}>

@@ -22,7 +22,7 @@ export default function LoginPage() {
       </div>
 
       <p className="auth-footnote">
-        로그인하면 <strong>이용약관</strong> 및 <strong>개인정보 처리방침</strong>에
+        로그인하면 <Link href="/terms">이용약관</Link> 및 <Link href="/privacy">개인정보 처리방침</Link>에
         동의하는 것으로 간주됩니다.
       </p>
     </main>

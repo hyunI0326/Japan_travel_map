@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { env } from "cloudflare:workers";
 import { AuthProvider } from "./auth-context";
 import { getSession } from "@/lib/auth";
 import "./globals.css";
@@ -38,9 +39,19 @@ export const metadata: Metadata = {
 
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   const session = await getSession();
+  const adsenseClientId = (env as unknown as { GOOGLE_ADSENSE_CLIENT_ID?: string })
+    .GOOGLE_ADSENSE_CLIENT_ID?.trim();
+  const verifiedAdsenseClientId = /^ca-pub-\d{16}$/.test(adsenseClientId || "")
+    ? adsenseClientId
+    : undefined;
 
   return (
     <html lang="ko">
+      <head>
+        {verifiedAdsenseClientId && (
+          <meta name="google-adsense-account" content={verifiedAdsenseClientId} />
+        )}
+      </head>
       <body>
         <AuthProvider
           value={{
