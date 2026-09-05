@@ -147,14 +147,14 @@ h1 { margin: 16px 0 18px; font-family: Georgia, "Nanum Myeongjo", serif; font-si
 .region-switcher button:disabled { cursor: wait; opacity: .6; }
 .region-switcher small { display: block; margin-top: 3px; font-size: 7px; letter-spacing: .07em; opacity: .65; }
 .must-visit-list { display: grid; gap: 8px; }
-.must-visit-list article { opacity: 0; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 14px; padding: 14px; border: 1px solid var(--line); border-radius: 12px; background: white; animation: list-item-in .42s cubic-bezier(.22, 1, .36, 1) forwards; transition: transform .2s ease, border-color .2s ease, background .2s ease, box-shadow .2s ease; }
+.must-visit-list article { opacity: 0; display: grid; grid-template-columns: 104px minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 10px; border: 1px solid var(--line); border-radius: 12px; background: white; animation: list-item-in .42s cubic-bezier(.22, 1, .36, 1) forwards; transition: transform .2s ease, border-color .2s ease, background .2s ease, box-shadow .2s ease; }
 .must-visit-list article:hover { transform: translateY(-1px); border-color: #93b4ed; box-shadow: 0 8px 20px rgba(37, 99, 235, .07); }
 .must-visit-list article.selected { border-color: #7aa2e8; background: var(--surface-strong); box-shadow: inset 3px 0 #2563eb; }
-.must-visit-list article > div { min-width: 0; display: grid; gap: 4px; }
-.must-visit-list span { color: var(--red); font-size: 8px; font-weight: 900; letter-spacing: .04em; }
-.must-visit-list strong { font-family: Georgia, "Nanum Myeongjo", serif; font-size: 16px; }
-.must-visit-list small { overflow: hidden; color: #747d77; font-size: 9px; line-height: 1.5; text-overflow: ellipsis; white-space: nowrap; }
-.must-visit-list em { color: #94a3b8; font-size: 8px; font-style: normal; font-weight: 750; }
+.must-visit-copy { min-width: 0; display: grid; gap: 4px; }
+.must-visit-copy > span { color: var(--red); font-size: 12px; font-weight: 900; letter-spacing: .04em; }
+.must-visit-copy > strong { font-family: Georgia, "Nanum Myeongjo", serif; font-size: 16px; }
+.must-visit-copy > small { overflow: hidden; color: #747d77; font-size: 12px; line-height: 1.5; text-overflow: ellipsis; white-space: nowrap; }
+.must-visit-copy > em { color: #94a3b8; font-size: 12px; font-style: normal; font-weight: 750; }
 .must-visit-list button { min-width: 74px; padding: 10px 11px; border: 1px solid #2563eb; border-radius: 9px; color: #1d4ed8; background: white; cursor: pointer; font-size: 9px; font-weight: 900; transition: color .2s ease, background .2s ease, transform .2s ease; }
 .must-visit-list button:hover { transform: translateY(-1px); color: white; background: #2563eb; }
 .must-visit-list article.selected button { color: white; background: #2563eb; }
@@ -174,13 +174,22 @@ h1 { margin: 16px 0 18px; font-family: Georgia, "Nanum Myeongjo", serif; font-si
 .recommend-button b { color: #bfdbfe; font-size: 17px; }
 .inline-error { margin: 12px 0 0; color: #b63f32; font-size: 10px; font-weight: 800; line-height: 1.55; }
 .nearby-list { display: grid; gap: 8px; margin-top: 16px; }
-.nearby-list article { opacity: 0; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 13px 14px; border: 1px solid var(--line); border-radius: 11px; background: white; animation: list-item-in .38s cubic-bezier(.22, 1, .36, 1) forwards; }
+.nearby-summary { margin: 0 0 4px; color: #64748b; font-size: 12px; line-height: 1.55; }
+.nearby-summary strong { color: #1d4ed8; font-size: inherit; }
+.nearby-list article { opacity: 0; display: grid; grid-template-columns: 104px minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 10px; border: 1px solid var(--line); border-radius: 13px; background: white; animation: list-item-in .38s cubic-bezier(.22, 1, .36, 1) forwards; transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease; }
+.nearby-list article:hover { transform: translateY(-1px); border-color: #93b4ed; box-shadow: 0 8px 22px rgba(37, 99, 235, .08); }
 .nearby-list article.selected { border-color: #7aa2e8; background: var(--surface-strong); }
-.nearby-list article > div { min-width: 0; display: grid; gap: 4px; }
-.nearby-list span { color: var(--red); font-size: 8px; font-weight: 900; }
-.nearby-list strong { font-family: Georgia, "Nanum Myeongjo", serif; font-size: 16px; }
-.nearby-list small { overflow: hidden; color: #747d77; font-size: 9px; line-height: 1.5; text-overflow: ellipsis; white-space: nowrap; }
-.nearby-list button { min-width: 62px; padding: 9px 10px; border: 1px solid var(--green); color: var(--green); background: transparent; cursor: pointer; font-size: 9px; font-weight: 900; }
+.place-card-photo { position: relative; width: 104px; height: 78px; overflow: hidden; border-radius: 9px; background: linear-gradient(145deg, #dbeafe, #eff6ff); }
+.place-card-photo > a:first-child { display: block; width: 100%; height: 100%; }
+.place-card-photo img { width: 100%; height: 100%; display: block; object-fit: cover; transition: transform .35s ease; }
+.must-visit-list article:hover .place-card-photo img, .nearby-list article:hover .place-card-photo img { transform: scale(1.04); }
+.place-card-photo.is-placeholder { display: grid; place-items: center; color: rgba(29, 78, 216, .55); background: radial-gradient(circle at 25% 25%, rgba(255, 255, 255, .8), transparent 30%), linear-gradient(145deg, #dbeafe, #bfdbfe); font-family: Georgia, serif; font-size: 25px; }
+.place-card-photo-credit { position: absolute; left: 4px; right: 4px; bottom: 4px; z-index: 1; padding: 3px 4px; overflow: hidden; border-radius: 4px; color: white; background: rgba(15, 23, 42, .72); font-size: 9px; line-height: 1.2; text-decoration: none; text-overflow: ellipsis; white-space: nowrap; }
+.nearby-copy { min-width: 0; display: grid; gap: 5px; }
+.nearby-copy > span { color: var(--red); font-size: 12px; font-weight: 900; }
+.nearby-copy > strong { font-family: Georgia, "Nanum Myeongjo", serif; font-size: 16px; }
+.nearby-copy > small { overflow: hidden; color: #747d77; font-size: 12px; line-height: 1.5; text-overflow: ellipsis; white-space: nowrap; }
+.nearby-list article > button { min-width: 62px; padding: 9px 10px; border: 1px solid var(--green); border-radius: 8px; color: var(--green); background: transparent; cursor: pointer; font-size: 12px; font-weight: 900; }
 .nearby-list article.selected button { color: white; background: var(--green); }
 .places-source { margin: 2px 0 0; padding: 9px 11px; border: 1px dashed #cbd5e1; border-radius: 9px; color: #64748b; background: #f8fafc; font-size: 8px; font-weight: 800; line-height: 1.5; text-align: center; }
 .places-source.is-google { border-color: #bfdbfe; color: #1d4ed8; background: #eff6ff; }
@@ -237,10 +246,7 @@ h1 { margin: 16px 0 18px; font-family: Georgia, "Nanum Myeongjo", serif; font-si
 .course-place-actions .course-place-remove { color: #929791; font-size: 20px; }
 .course-edit-tip { margin: 10px 2px 0; color: #64748b; font-size: 10px; line-height: 1.55; }
 
-.place-detail-card { overflow: hidden; display: grid; grid-template-columns: 150px minmax(0, 1fr); margin-top: 18px; border: 1px solid #cdddf4; border-radius: 15px; background: #f8fbff; animation: step-reveal .35s ease both; }
-.place-detail-photo { position: relative; min-height: 188px; overflow: hidden; background: #dbeafe; }
-.place-detail-photo img { width: 100%; height: 100%; object-fit: cover; }
-.place-detail-photo small { position: absolute; left: 7px; bottom: 7px; max-width: calc(100% - 14px); padding: 4px 6px; overflow: hidden; border-radius: 5px; color: white; background: rgba(15, 23, 42, .72); font-size: 7px; text-overflow: ellipsis; white-space: nowrap; }
+.place-detail-card { overflow: hidden; display: grid; grid-template-columns: minmax(0, 1fr); margin-top: 18px; border: 1px solid #cdddf4; border-radius: 15px; background: #f8fbff; animation: step-reveal .35s ease both; }
 .place-detail-copy { min-width: 0; padding: 17px; }
 .place-detail-copy > span { color: var(--red); font-size: 8px; font-weight: 900; letter-spacing: .16em; }
 .place-detail-copy h3 { margin: 5px 0 9px; font-family: Georgia, "Nanum Myeongjo", serif; font-size: 19px; font-weight: 600; }
@@ -398,21 +404,23 @@ button.timeline-item:hover div, button.timeline-item.active div { color: #1d4ed8
   .planner-step { padding: 16px 14px; }
   .step-heading { grid-template-columns: auto minmax(0, 1fr); }
   .step-state { grid-column: 2; justify-self: start; max-width: none; }
-  .must-visit-list article { align-items: start; gap: 10px; }
-  .must-visit-list small { white-space: normal; }
+  .must-visit-list article { grid-template-columns: 88px minmax(0, 1fr); align-items: start; gap: 10px; }
+  .must-visit-photo { width: 88px; height: 76px; }
+  .must-visit-copy > small { white-space: normal; }
+  .must-visit-list article > button { grid-column: 1 / -1; width: 100%; min-height: 34px; }
   .region-switcher { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .region-switcher button { border-bottom: 1px solid var(--line); }
   .region-switcher button:nth-child(3) { border-right: 0; }
   .region-switcher button:nth-child(n+4) { border-bottom: 0; }
   .planner-options { grid-template-columns: 1fr; }
   .style-switcher { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .nearby-list article { align-items: start; }
-  .nearby-list small { white-space: normal; }
+  .nearby-list article { grid-template-columns: 88px minmax(0, 1fr); align-items: start; }
+  .nearby-photo { width: 88px; height: 76px; }
+  .nearby-copy > small { white-space: normal; }
+  .nearby-list article > button { grid-column: 1 / -1; width: 100%; min-height: 34px; }
   .course-builder, .itinerary-builder { margin-inline: -8px; padding: 20px 14px; }
   .course-place-list > div { grid-template-columns: 22px minmax(0, 1fr); }
   .course-place-actions { grid-column: 1 / -1; grid-template-columns: repeat(4, 1fr); min-height: 34px; border-top: 1px solid var(--line); border-left: 0; }
-  .place-detail-card { grid-template-columns: 1fr; }
-  .place-detail-photo { min-height: 190px; max-height: 240px; }
   .preference-grid { grid-template-columns: 1fr; }
   .preference-grid label.wide { grid-column: auto; }
   .preference-group > div { grid-template-columns: repeat(2, minmax(0, 1fr)); }

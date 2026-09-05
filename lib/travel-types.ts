@@ -55,6 +55,9 @@ export type TravelPlace = {
 export type PlaceRecommendation = TravelPlace & {
   distanceKm: number;
   nearAnchorName: string;
+  photoUrl?: string;
+  photoAttribution?: { displayName: string; uri?: string };
+  photoGoogleMapsUri?: string;
 };
 
 export type OpeningPeriodPoint = {
@@ -82,6 +85,7 @@ export type PlaceDetails = {
   googleMapsUri?: string;
   photoUrl?: string;
   photoAttribution?: { displayName: string; uri?: string };
+  photoGoogleMapsUri?: string;
 };
 
 export type PlannedPlaceActivity = {

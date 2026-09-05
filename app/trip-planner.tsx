@@ -197,6 +197,58 @@ function priceLabel(priceLevel?: string) {
   return levels[priceLevel] ?? "가격 정보 없음";
 }
 
+function PlaceCardPhoto({
+  name,
+  photoUrl,
+  photoAttribution,
+  photoLink,
+  className,
+}: {
+  name: string;
+  photoUrl?: string;
+  photoAttribution?: { displayName: string; uri?: string };
+  photoLink?: string;
+  className: string;
+}) {
+  const [failedUrl, setFailedUrl] = useState("");
+  const showPhoto = Boolean(photoUrl && failedUrl !== photoUrl);
+  const image = showPhoto ? (
+    // Google Places supplies a short-lived, resized photo URL through our API proxy.
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={photoUrl}
+      alt={`${name} 장소 사진`}
+      width="240"
+      height="180"
+      loading="lazy"
+      onError={() => setFailedUrl(photoUrl || "")}
+    />
+  ) : null;
+
+  return (
+    <div className={`place-card-photo ${className} ${showPhoto ? "has-photo" : "is-placeholder"}`}>
+      {image ? (
+        photoLink ? (
+          <a href={photoLink} target="_blank" rel="noreferrer" aria-label={`${name} 사진을 Google Maps에서 크게 보기`}>
+            {image}
+          </a>
+        ) : image
+      ) : (
+        <span aria-hidden="true">旅</span>
+      )}
+      {showPhoto && photoAttribution && (
+        photoAttribution.uri || photoLink ? (
+          <a className="place-card-photo-credit" href={photoAttribution.uri || photoLink} target="_blank" rel="noreferrer">
+            사진: {photoAttribution.displayName}
+          </a>
+        ) : (
+          <small className="place-card-photo-credit">사진: {photoAttribution.displayName}</small>
+        )
+      )}
+    </div>
+  );
+}
+
 export default function TripPlanner({
   regions,
   initialCourse,
@@ -306,6 +358,20 @@ export default function TripPlanner({
       cancelled = true;
     };
   }, [activePlace, requestPlaceDetails]);
+
+  useEffect(() => {
+    if (!stepTwoUnlocked) return;
+    let cancelled = false;
+    void (async () => {
+      for (const place of catalog.mustVisits) {
+        if (cancelled) break;
+        await requestPlaceDetails(place);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [catalog.mustVisits, requestPlaceDetails, stepTwoUnlocked]);
 
   useEffect(() => {
     if (sharedPlanLoadedRef.current) return;
@@ -780,9 +846,17 @@ export default function TripPlanner({
                   <div className="must-visit-list" role="group" aria-label="필수 관광지 선택">
                     {catalog.mustVisits.map((place, index) => {
                       const selected = mustVisitIds.includes(place.id);
+                      const details = placeDetailsById[place.id];
                       return (
                         <article key={place.id} className={selected ? "selected" : ""} style={{ animationDelay: `${index * 55}ms` }}>
-                          <div>
+                          <PlaceCardPhoto
+                            name={place.name}
+                            photoUrl={details?.photoUrl}
+                            photoAttribution={details?.photoAttribution}
+                            photoLink={details?.photoGoogleMapsUri || details?.googleMapsUri}
+                            className="must-visit-photo"
+                          />
+                          <div className="must-visit-copy">
                             <span>{selected ? "코스에 포함됨" : place.category}</span>
                             <strong>{place.name}</strong>
                             <small>{place.description}</small>
@@ -819,9 +893,26 @@ export default function TripPlanner({
                 {recommendationState === "error" && <p className="inline-error" role="alert">근교 추천을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.</p>}
                 {recommendations.length > 0 && (
                   <div className="nearby-list" aria-label={recommendationKind === "food" ? "근처 맛집 추천" : "근교 추천 관광지"}>
+                    <p className="nearby-summary"><strong>{recommendations.length}곳</strong>을 찾았어요. 마음에 드는 장소를 코스에 담아보세요.</p>
                     {recommendations.map((place, index) => {
                       const selected = selectedPlaces.some((candidate) => candidate.id === place.id);
-                      return <article key={place.id} className={selected ? "selected" : ""} style={{ animationDelay: `${index * 45}ms` }}><div><span>{place.nearAnchorName}에서 {place.distanceKm}km</span><strong>{place.name}</strong><small>{place.category} · {place.description}</small></div><button type="button" onClick={() => toggleRecommendedPlace(place)} aria-label={`${place.name} ${selected ? "코스에서 빼기" : "코스에 담기"}`}>{selected ? "담김 ✓" : "+ 담기"}</button></article>;
+                      return (
+                        <article key={place.id} className={selected ? "selected" : ""} style={{ animationDelay: `${index * 45}ms` }}>
+                          <PlaceCardPhoto
+                            name={place.name}
+                            photoUrl={place.photoUrl}
+                            photoAttribution={place.photoAttribution}
+                            photoLink={place.photoGoogleMapsUri || place.externalUrl}
+                            className="nearby-photo"
+                          />
+                          <div className="nearby-copy">
+                            <span>{place.nearAnchorName}에서 {place.distanceKm}km</span>
+                            <strong>{place.name}</strong>
+                            <small>{place.category} · {place.description}</small>
+                          </div>
+                          <button type="button" onClick={() => toggleRecommendedPlace(place)} aria-label={`${place.name} ${selected ? "코스에서 빼기" : "코스에 담기"}`}>{selected ? "담김 ✓" : "+ 담기"}</button>
+                        </article>
+                      );
                     })}
                     <p className={`places-source ${recommendationProvider === "google" ? "is-google" : ""}`}>
                       {recommendationProvider === "google"
@@ -874,15 +965,7 @@ export default function TripPlanner({
               {detailsState === "loading" && <div className="detail-loading" role="status"><i /><span>평점과 영업시간을 확인하고 있어요.</span></div>}
               {detailsState === "error" && <div className="detail-unavailable"><strong id="active-place-title">{activePlace.name}</strong><span>상세 정보를 불러오지 못했지만 코스에는 그대로 사용할 수 있어요.</span></div>}
               {activeDetails && (
-                <>
-                  {activeDetails.photoUrl && (
-                    <div className="place-detail-photo">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={activeDetails.photoUrl} alt={`${activeDetails.name} 장소 사진`} />
-                      {activeDetails.photoAttribution && <small>사진: {activeDetails.photoAttribution.displayName}</small>}
-                    </div>
-                  )}
-                  <div className="place-detail-copy">
+                <div className="place-detail-copy">
                     <span>PLACE DETAILS</span>
                     <h3 id="active-place-title">{activeDetails.name}</h3>
                     <div className="place-detail-stats">
@@ -912,7 +995,6 @@ export default function TripPlanner({
                       {activeDetails.websiteUri && <a href={activeDetails.websiteUri} target="_blank" rel="noreferrer">공식 사이트 ↗</a>}
                     </div>
                   </div>
-                </>
               )}
             </section>
           )}

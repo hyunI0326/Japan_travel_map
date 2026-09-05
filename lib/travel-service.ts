@@ -178,7 +178,7 @@ export async function recommendNearbyPlaces({
     })
     .filter((place) => kind !== "food" || place.styleTags.split(",").includes("food"))
     .sort((a, b) => a.rank - b.rank)
-    .slice(0, 8)
+    .slice(0, 12)
     .map((place) => ({
       ...toTravelPlace(place),
       distanceKm: place.distanceKm,

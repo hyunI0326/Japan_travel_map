@@ -40,6 +40,7 @@ type GooglePlace = {
   photos?: Array<{
     name?: string;
     authorAttributions?: Array<{ displayName?: string; uri?: string }>;
+    googleMapsUri?: string;
   }>;
 };
 
@@ -156,6 +157,7 @@ export async function searchGoogleNearbyPlaces({
         "places.formattedAddress",
         "places.location",
         "places.googleMapsUri",
+        "places.photos",
       ].join(","),
     },
     body: JSON.stringify({
@@ -221,16 +223,23 @@ export async function searchGoogleNearbyPlaces({
       );
       if (duplicatesAnchor || nearest.distance > radius / 1_000) return [];
 
-      return [
-        {
-          ...candidate,
-          distanceKm: Number(nearest.distance.toFixed(1)),
-          nearAnchorName: nearest.anchor.name,
-        },
-      ];
+      const photo = place.photos?.[0];
+      const attribution = photo?.authorAttributions?.[0];
+      return [{
+        ...candidate,
+        distanceKm: Number(nearest.distance.toFixed(1)),
+        nearAnchorName: nearest.anchor.name,
+        photoUrl: photo?.name
+          ? `/api/place-photo?name=${encodeURIComponent(photo.name)}`
+          : undefined,
+        photoAttribution: attribution?.displayName
+          ? { displayName: attribution.displayName, uri: attribution.uri }
+          : undefined,
+        photoGoogleMapsUri: photo?.googleMapsUri,
+      }];
     })
     .sort((a, b) => a.distanceKm - b.distanceKm)
-    .slice(0, 8);
+    .slice(0, 12);
 }
 
 function openingPeriods(place: GooglePlace): PlaceDetails["periods"] {
@@ -283,6 +292,7 @@ function toPlaceDetails(place: GooglePlace): PlaceDetails | null {
     photoAttribution: attribution?.displayName
       ? { displayName: attribution.displayName, uri: attribution.uri }
       : undefined,
+    photoGoogleMapsUri: photo?.googleMapsUri,
   };
 }
 
