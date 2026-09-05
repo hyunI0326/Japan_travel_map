@@ -1,6 +1,6 @@
 const origin = "https://joemechu.com";
 
-const pages = ["", "/guide", "/about", "/privacy", "/terms"];
+const pages = ["", "/guide", "/about", "/contact", "/privacy", "/terms"];
 
 export function GET() {
   const urls = pages

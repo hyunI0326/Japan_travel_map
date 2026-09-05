@@ -19,20 +19,11 @@ export default function InfoPage({ eyebrow, title, intro, children, updatedAt }:
         </Link>
         <nav aria-label="주요 메뉴">
           <Link className="section-link" href="/">코스 만들기</Link>
-          <Link className="section-link" href="/guide">여행 가이드</Link>
-          <Link className="section-link" href="/about">서비스 소개</Link>
           <Link className="sign-in-link" href="/login">로그인</Link>
         </nav>
       </header>
 
       <main className="info-main">
-        <nav className="resource-nav info-resource-nav" aria-label="여행 정보와 운영 정책">
-          <Link href="/guide">일본 여행 가이드</Link>
-          <Link href="/about">서비스 소개</Link>
-          <Link href="/about#contact">문의</Link>
-          <Link href="/privacy">개인정보 처리방침</Link>
-          <Link href="/terms">이용약관</Link>
-        </nav>
         <header className="info-hero">
           <p>{eyebrow}</p>
           <h1>{title}</h1>
@@ -49,7 +40,8 @@ export default function InfoPage({ eyebrow, title, intro, children, updatedAt }:
         </div>
         <nav aria-label="정책 및 안내">
           <Link href="/guide">여행 가이드</Link>
-          <Link href="/about">서비스 소개·문의</Link>
+          <Link href="/about">서비스 소개</Link>
+          <Link href="/contact">문의</Link>
           <Link href="/privacy">개인정보 처리방침</Link>
           <Link href="/terms">이용약관</Link>
         </nav>

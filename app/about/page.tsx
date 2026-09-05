@@ -39,7 +39,7 @@ export default function AboutPage() {
         <span className="info-number">04</span>
         <h2>문의와 오류 제보</h2>
         <p>장소 정보 오류, 기능 문제, 개인정보 관련 요청은 공개 저장소의 문의 창구로 접수할 수 있습니다. 계정 이메일이나 API 키 같은 민감한 정보는 문의 글에 적지 마세요.</p>
-        <a className="info-cta" href="https://github.com/hyunI0326/Japan_travel_map/issues" target="_blank" rel="noreferrer">GitHub에서 문의하기 <span aria-hidden="true">↗</span></a>
+        <a className="info-cta" href="/contact">문의 방법 확인하기 <span aria-hidden="true">→</span></a>
       </section>
     </InfoPage>
   );

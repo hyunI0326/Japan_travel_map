@@ -1148,7 +1148,6 @@ export default function TripPlanner({
         <nav aria-label="주요 메뉴">
           <a className="section-link active" href="#planner">코스 만들기</a>
           <a className="section-link" href="#saved">내 코스</a>
-          <Link className="section-link" href="/guide">여행 가이드</Link>
           {user && (
             <button className={`save-button ${saveState === "saved" ? "is-saved" : ""}`} onClick={saveCurrentCourse} type="button" disabled={selectedPlaces.length === 0 || saveState === "saving"}>
               {saveState === "saving" ? "저장 중…" : saveState === "saved" ? "저장됨 ✓" : "이 코스 저장"}
@@ -1164,13 +1163,6 @@ export default function TripPlanner({
       </header>
 
       <section className="route-panel" id="planner">
-        <nav className="resource-nav" aria-label="여행 정보와 운영 정책">
-          <Link href="/guide">일본 여행 가이드</Link>
-          <Link href="/about">서비스 소개</Link>
-          <Link href="/about#contact">문의</Link>
-          <Link href="/privacy">개인정보 처리방침</Link>
-          <Link href="/terms">이용약관</Link>
-        </nav>
         <div className="route-heading" key={catalog.region.id}>
           <div className="city-chip"><span className="city-dot" /> {catalog.region.nameEn} <b>{catalog.region.nameJp}</b></div>
           <p className="eyebrow">BUILD YOUR OWN ROUTE · {catalog.region.eyebrow}</p>
@@ -1558,7 +1550,8 @@ export default function TripPlanner({
           </div>
           <nav aria-label="정책 및 안내">
             <Link href="/guide">여행 가이드</Link>
-            <Link href="/about">서비스 소개·문의</Link>
+            <Link href="/about">서비스 소개</Link>
+            <Link href="/contact">문의</Link>
             <Link href="/privacy">개인정보 처리방침</Link>
             <Link href="/terms">이용약관</Link>
           </nav>
