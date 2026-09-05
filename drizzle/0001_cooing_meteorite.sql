@@ -1,4 +1,4 @@
-CREATE TABLE `itinerary` (
+CREATE TABLE IF NOT EXISTS `itinerary` (
 	`id` text PRIMARY KEY NOT NULL,
 	`userId` text NOT NULL,
 	`regionId` text NOT NULL,
@@ -11,8 +11,8 @@ CREATE TABLE `itinerary` (
 	FOREIGN KEY (`regionId`) REFERENCES `region`(`id`) ON UPDATE no action ON DELETE restrict
 );
 --> statement-breakpoint
-CREATE INDEX `idx_itinerary_user_updated` ON `itinerary` (`userId`,`updatedAt`);--> statement-breakpoint
-CREATE TABLE `itineraryItem` (
+CREATE INDEX IF NOT EXISTS `idx_itinerary_user_updated` ON `itinerary` (`userId`,`updatedAt`);--> statement-breakpoint
+CREATE TABLE IF NOT EXISTS `itineraryItem` (
 	`id` text PRIMARY KEY NOT NULL,
 	`itineraryId` text NOT NULL,
 	`placeId` text NOT NULL,
@@ -24,9 +24,9 @@ CREATE TABLE `itineraryItem` (
 	FOREIGN KEY (`placeId`) REFERENCES `place`(`id`) ON UPDATE no action ON DELETE restrict
 );
 --> statement-breakpoint
-CREATE UNIQUE INDEX `itinerary_item_slot_unique` ON `itineraryItem` (`itineraryId`,`dayNumber`,`position`);--> statement-breakpoint
-CREATE INDEX `idx_itinerary_item_itinerary` ON `itineraryItem` (`itineraryId`);--> statement-breakpoint
-CREATE TABLE `place` (
+CREATE UNIQUE INDEX IF NOT EXISTS `itinerary_item_slot_unique` ON `itineraryItem` (`itineraryId`,`dayNumber`,`position`);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS `idx_itinerary_item_itinerary` ON `itineraryItem` (`itineraryId`);--> statement-breakpoint
+CREATE TABLE IF NOT EXISTS `place` (
 	`id` text PRIMARY KEY NOT NULL,
 	`regionId` text NOT NULL,
 	`dayGroup` integer NOT NULL,
@@ -42,8 +42,8 @@ CREATE TABLE `place` (
 	FOREIGN KEY (`regionId`) REFERENCES `region`(`id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
-CREATE INDEX `idx_place_region_day_order` ON `place` (`regionId`,`dayGroup`,`sortOrder`);--> statement-breakpoint
-CREATE TABLE `region` (
+CREATE INDEX IF NOT EXISTS `idx_place_region_day_order` ON `place` (`regionId`,`dayGroup`,`sortOrder`);--> statement-breakpoint
+CREATE TABLE IF NOT EXISTS `region` (
 	`id` text PRIMARY KEY NOT NULL,
 	`nameKo` text NOT NULL,
 	`nameEn` text NOT NULL,
@@ -57,7 +57,7 @@ CREATE TABLE `region` (
 	`centerLon` real NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE `userPreference` (
+CREATE TABLE IF NOT EXISTS `userPreference` (
 	`userId` text PRIMARY KEY NOT NULL,
 	`preferredStyle` text DEFAULT 'balanced' NOT NULL,
 	`lastRegionId` text,
