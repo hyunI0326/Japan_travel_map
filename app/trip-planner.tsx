@@ -350,6 +350,28 @@ export default function TripPlanner({
   const currentStep = !hasChosenRegion ? 1 : !stepThreeUnlocked ? 2 : 3;
   const draftSaved = draftReady && hasChosenRegion && selectedPlaces.length > 0;
 
+  useEffect(() => {
+    const elements = Array.from(document.querySelectorAll<HTMLElement>("[data-reveal]"));
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduceMotion || !("IntersectionObserver" in window)) {
+      elements.forEach((element) => element.classList.add("is-visible"));
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting) return;
+          entry.target.classList.add("is-visible");
+          observer.unobserve(entry.target);
+        });
+      },
+      { threshold: 0.12, rootMargin: "0px 0px -7% 0px" },
+    );
+    elements.forEach((element) => observer.observe(element));
+    return () => observer.disconnect();
+  }, []);
+
   const requestPlaceDetails = useCallback(async (place: TravelPlace) => {
     const cached = detailsCacheRef.current[place.id];
     if (cached) return cached;
@@ -1140,7 +1162,7 @@ export default function TripPlanner({
       </header>
 
       <section className="route-panel" id="planner">
-        <div className="route-heading">
+        <div className="route-heading" key={catalog.region.id}>
           <div className="city-chip"><span className="city-dot" /> {catalog.region.nameEn} <b>{catalog.region.nameJp}</b></div>
           <p className="eyebrow">BUILD YOUR OWN ROUTE · {catalog.region.eyebrow}</p>
           <h1>꼭 가고 싶은 곳부터<br />나만의 코스로</h1>
@@ -1148,10 +1170,11 @@ export default function TripPlanner({
           <div className="route-meta" aria-label="코스 요약"><span>{selectedPlaces.length}개 장소</span><i /><span>{course.dayCount}일 예상</span><i /><span>{styleLabels[style]}</span></div>
         </div>
 
-        <section className="planner-card guided-planner" aria-labelledby="planner-title">
+        <section className="planner-card guided-planner" aria-labelledby="planner-title" data-reveal>
           <div className="planner-title-row"><div><span>STEP BY STEP</span><h2 id="planner-title">여행 코스를 만들어 볼까요?</h2></div><strong>{String(currentStep).padStart(2, "0")} — 03</strong></div>
+          <div className="planner-progress" role="progressbar" aria-label="여행 코스 설정 진행률" aria-valuemin={1} aria-valuemax={3} aria-valuenow={currentStep}><span style={{ width: `${(currentStep / 3) * 100}%` }} /></div>
 
-          <div className={`planner-step ${hasChosenRegion ? "is-complete" : "is-active"}`}>
+          <div data-step="01" className={`planner-step ${hasChosenRegion ? "is-complete" : "is-active"}`}>
             <div className="step-heading">
               <b>{hasChosenRegion ? "✓" : "01"}</b>
               <div><span>여행 지역</span><h3>어디로 떠나나요?</h3></div>
@@ -1163,7 +1186,7 @@ export default function TripPlanner({
             {catalogState === "error" && <p className="inline-error" role="alert">지역 관광지를 불러오지 못했어요.</p>}
           </div>
 
-          <div ref={stepTwoRef} className={`planner-step ${!stepTwoUnlocked ? "is-locked" : stepThreeUnlocked ? "is-complete" : "is-active"}`} aria-disabled={!stepTwoUnlocked}>
+          <div data-step="02" ref={stepTwoRef} className={`planner-step ${!stepTwoUnlocked ? "is-locked" : stepThreeUnlocked ? "is-complete" : "is-active"}`} aria-disabled={!stepTwoUnlocked}>
             <div className="step-heading">
               <b>{stepThreeUnlocked ? "✓" : "02"}</b>
               <div><span>필수 관광지</span><h3>놓치고 싶지 않은 곳을 골라주세요</h3></div>
@@ -1207,7 +1230,7 @@ export default function TripPlanner({
             )}
           </div>
 
-          <div ref={stepThreeRef} className={`planner-step ${stepThreeUnlocked ? "is-active" : "is-locked"}`} aria-disabled={!stepThreeUnlocked}>
+          <div data-step="03" ref={stepThreeRef} className={`planner-step ${stepThreeUnlocked ? "is-active" : "is-locked"}`} aria-disabled={!stepThreeUnlocked}>
             <div className="step-heading">
               <b>03</b>
               <div><span>근교 추천</span><h3>선택한 곳 근처를 함께 둘러봐요</h3></div>
@@ -1311,7 +1334,7 @@ export default function TripPlanner({
           </div>
         </section>
 
-        <section className="course-builder" aria-labelledby="course-title">
+        <section className="course-builder" aria-labelledby="course-title" data-reveal>
           <div className="saved-heading"><div><span>MY ROUTE</span><h2 id="course-title">내 여행 코스</h2></div><small>{selectedPlaces.length}/9개 장소</small></div>
           {draftSaved && <p className="draft-status"><span aria-hidden="true">✓</span> 작성 중인 코스는 이 기기에 자동 임시저장돼요.</p>}
           {selectedPlaces.length === 0 ? <p className="saved-empty">필수 관광지를 선택하면 지도와 코스에 바로 표시됩니다.</p> : (
@@ -1387,7 +1410,7 @@ export default function TripPlanner({
           {saveState === "error" && <p className="inline-error" role="alert">코스를 저장하지 못했어요. 로그인 상태를 확인해 주세요.</p>}
         </section>
 
-        <section className="itinerary-builder" aria-labelledby="itinerary-title">
+        <section className="itinerary-builder" aria-labelledby="itinerary-title" data-reveal>
           <div className="saved-heading"><div><span>SMART ITINERARY</span><h2 id="itinerary-title">여행 일정 자동 완성</h2></div><small>동선·영업시간 반영</small></div>
           <p className="itinerary-intro">여행 조건을 알려주면 가까운 장소끼리 묶고, 영업시간과 식사 시간을 확인해 하루별 일정을 만들어요.</p>
           <div className="preference-grid">
@@ -1489,7 +1512,7 @@ export default function TripPlanner({
           {shareState === "error" && <p className="inline-error" role="alert">공유 링크를 복사하지 못했어요. 주소창의 링크를 직접 복사해 주세요.</p>}
         </section>
 
-        <section className="saved-courses" id="saved" aria-labelledby="saved-title">
+        <section className="saved-courses" id="saved" aria-labelledby="saved-title" data-reveal>
           <div className="saved-heading"><div><span>SAVED ROUTES</span><h2 id="saved-title">저장한 코스</h2></div>{user && <small>{savedCourses.length}개 저장됨</small>}</div>
           {!user ? <p className="saved-empty">로그인하면 직접 담은 관광지와 순서를 계정에 저장할 수 있어요.</p> : savedCourses.length === 0 ? <p className="saved-empty">아직 저장한 코스가 없어요. 관광지를 담고 첫 코스를 저장해 보세요.</p> : (
             <div className="saved-list">
@@ -1517,16 +1540,16 @@ export default function TripPlanner({
           )}
           {savedActionState === "error" && <p className="inline-error" role="alert">저장한 코스를 변경하지 못했어요. 잠시 후 다시 시도해 주세요.</p>}
         </section>
-        <aside className="tip-card" id="tips"><span>LOCAL TIP</span><p><strong>{catalog.region.tipTitle}</strong> {catalog.region.tipText}</p></aside>
+        <aside className="tip-card" id="tips" data-reveal><span>LOCAL TIP</span><p><strong>{catalog.region.tipTitle}</strong> {catalog.region.tipText}</p></aside>
         <p className="disclaimer">Google 경로를 확인할 수 없는 장소만 직선거리 기준으로 표시돼요. 실제 운행 상황은 출발 전에 다시 확인해 주세요.</p>
       </section>
 
       <section className="map-panel" aria-label={`${catalog.region.nameKo} 내 여행 코스 지도`}>
         <TravelMap apiKey={googleMapsApiKey} places={selectedPlaces} startPlace={selectedLodging} activePlaceId={activePlace?.id ?? ""} center={mapCenter} onSelect={setActivePlaceId} />
         <div className="map-shade" aria-hidden="true" />
-        <div className="map-label">{catalog.region.nameKo} · 내 코스 {selectedPlaces.length}곳</div>
+        <div className="map-label" key={`${catalog.region.id}-${selectedPlaces.length}`}>{catalog.region.nameKo} · 내 코스 {selectedPlaces.length}곳</div>
         <div className="map-legend" aria-label="지도 범례"><span><i /> 내 이동 동선</span><span><b>01</b> 방문 순서</span>{selectedLodging && <span><b className="hotel-legend">宿</b> 숙소 출발점</span>}</div>
-        {activePlace ? <><div className="map-float" aria-live="polite"><span>MY ROUTE · STOP {String(selectedPlaces.indexOf(activePlace) + 1).padStart(2, "0")}</span><strong>{activePlace.name}</strong><small>{activePlace.suggestedTime} 추천 · {durationLabel}</small></div><a className="open-map" href={activePlaceMapUrl} target="_blank" rel="noreferrer" aria-label={`${activePlace.name} Google 지도에서 열기`}>Google 지도에서 보기 ↗</a></> : <div className="map-empty"><span>YOUR ROUTE MAP</span><strong>관광지를 선택하면<br />여기에 코스가 그려져요.</strong><small>선택한 순서대로 번호와 이동선이 표시됩니다.</small></div>}
+        {activePlace ? <><div className="map-float" key={activePlace.id} aria-live="polite"><span>MY ROUTE · STOP {String(selectedPlaces.indexOf(activePlace) + 1).padStart(2, "0")}</span><strong>{activePlace.name}</strong><small>{activePlace.suggestedTime} 추천 · {durationLabel}</small></div><a className="open-map" href={activePlaceMapUrl} target="_blank" rel="noreferrer" aria-label={`${activePlace.name} Google 지도에서 열기`}>Google 지도에서 보기 ↗</a></> : <div className="map-empty"><span>YOUR ROUTE MAP</span><strong>관광지를 선택하면<br />여기에 코스가 그려져요.</strong><small>선택한 순서대로 번호와 이동선이 표시됩니다.</small></div>}
       </section>
     </main>
   );
