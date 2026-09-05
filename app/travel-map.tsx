@@ -6,7 +6,13 @@ import type { TravelPlace } from "@/lib/travel-types";
 import TravelMapFallback from "./travel-map-fallback";
 
 let loaderPromise:
-  | Promise<[google.maps.MapsLibrary, google.maps.MarkerLibrary]>
+  | Promise<
+      [
+        google.maps.MapsLibrary,
+        google.maps.MarkerLibrary,
+        google.maps.CoreLibrary,
+      ]
+    >
   | null = null;
 
 function loadGoogleMaps(apiKey: string) {
@@ -20,6 +26,7 @@ function loadGoogleMaps(apiKey: string) {
     loaderPromise = Promise.all([
       importLibrary("maps"),
       importLibrary("marker"),
+      importLibrary("core"),
     ]);
   }
   return loaderPromise;
@@ -186,7 +193,8 @@ function GoogleTravelMap({
 
     async function initializeMap() {
       try {
-        const [mapsLibrary, markerLibrary] = await loadGoogleMaps(apiKey);
+        const [mapsLibrary, markerLibrary, coreLibrary] =
+          await loadGoogleMaps(apiKey);
         if (cancelled || !containerRef.current) return;
 
         const map = new mapsLibrary.Map(containerRef.current, {
@@ -196,13 +204,13 @@ function GoogleTravelMap({
           clickableIcons: false,
           fullscreenControl: true,
           fullscreenControlOptions: {
-            position: mapsLibrary.ControlPosition.RIGHT_CENTER,
+            position: coreLibrary.ControlPosition.RIGHT_CENTER,
           },
           mapTypeControl: false,
           streetViewControl: false,
           zoomControl: true,
           zoomControlOptions: {
-            position: mapsLibrary.ControlPosition.RIGHT_CENTER,
+            position: coreLibrary.ControlPosition.RIGHT_CENTER,
           },
         });
         const route = new mapsLibrary.Polyline({
@@ -219,7 +227,8 @@ function GoogleTravelMap({
         boundsRef.current = google.maps.LatLngBounds;
         setMapState("ready");
         renderRoute();
-      } catch {
+      } catch (error) {
+        console.error("Google Maps initialization failed", error);
         if (!cancelled) setMapState("error");
       }
     }
