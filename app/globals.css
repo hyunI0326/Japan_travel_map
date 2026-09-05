@@ -415,6 +415,25 @@ button.timeline-item:hover div, button.timeline-item.active div { color: #1d4ed8
 .export-actions button, .export-actions a { min-height: 40px; display: grid; place-items: center; padding: 8px; border: 1px solid #bfd3ef; border-radius: 8px; color: #1d4ed8; background: white; cursor: pointer; font-size: 9px; font-weight: 850; text-align: center; text-decoration: none; }
 .export-actions button:hover:not(:disabled), .export-actions a:hover { border-color: #2563eb; background: #eff6ff; }
 .export-actions button:disabled, .export-actions a[aria-disabled="true"] { pointer-events: none; opacity: .4; }
+.print-only { display: none; }
+
+.budget-calculator { margin-top: 22px; padding: 24px; border: 1px solid rgba(255, 255, 255, .68); border-radius: 22px; background: rgba(255, 255, 255, .76); box-shadow: 0 22px 58px rgba(15, 23, 42, .1), inset 0 1px rgba(255, 255, 255, .8); backdrop-filter: blur(26px) saturate(145%); -webkit-backdrop-filter: blur(26px) saturate(145%); }
+.budget-heading { margin-bottom: 8px; }
+.budget-intro { margin: 0 0 18px; color: #64748b; font-size: .875rem; line-height: 1.65; }
+.budget-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.budget-fields > label { min-width: 0; display: grid; gap: 7px; padding: 12px; border: 1px solid #dbe7f5; border-radius: 11px; background: rgba(248, 251, 255, .9); }
+.budget-fields > label > span:first-child { display: grid; gap: 3px; color: #334155; font-size: .875rem; font-weight: 850; }
+.budget-fields > label small { color: #7b8799; font-size: .75rem; font-weight: 500; line-height: 1.35; }
+.budget-input-wrap { min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 7px; }
+.budget-input-wrap input { min-width: 0; width: 100%; min-height: 40px; padding: 0 10px; border: 1px solid #bfd3ef; border-radius: 8px; color: var(--ink); background: white; font-size: .875rem; font-weight: 800; }
+.budget-input-wrap input:focus { outline: 3px solid rgba(37, 99, 235, .15); border-color: #60a5fa; }
+.budget-input-wrap b { min-width: 20px; color: #64748b; font-size: .75rem; text-align: right; }
+.budget-summary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; margin-top: 14px; overflow: hidden; border-radius: 13px; background: rgba(255, 255, 255, .16); box-shadow: 0 13px 30px rgba(15, 61, 145, .18); }
+.budget-summary > div { display: grid; gap: 4px; padding: 18px; color: white; background: linear-gradient(145deg, #0f3d91, #1d4ed8); }
+.budget-summary span { color: #bfdbfe; font-size: .75rem; font-weight: 850; }
+.budget-summary strong { font-family: Georgia, "Nanum Myeongjo", serif; font-size: 1.55rem; font-weight: 600; }
+.budget-summary small { color: #dbeafe; font-size: .8rem; }
+.budget-note { margin: 11px 2px 0; color: #7b8799; font-size: .75rem; line-height: 1.55; }
 .saved-courses { scroll-margin-top: 104px; margin-top: 26px; padding: 24px; border: 1px solid rgba(255, 255, 255, .68); border-radius: 22px; background: rgba(255, 255, 255, .67); box-shadow: 0 22px 58px rgba(15, 23, 42, .1), inset 0 1px rgba(255, 255, 255, .8); backdrop-filter: blur(26px) saturate(145%); -webkit-backdrop-filter: blur(26px) saturate(145%); }
 .saved-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; margin-bottom: 16px; }
 .saved-heading small { color: #8a928c; font-size: 9px; font-weight: 800; }
@@ -503,6 +522,58 @@ button.timeline-item:hover div, button.timeline-item.active div { color: #1d4ed8
 .info-footer a { min-height: 30px; display: inline-flex; align-items: center; color: #475569; font-size: .78rem; font-weight: 800; text-decoration: none; pointer-events: auto; }
 .info-footer a:hover { color: #1d4ed8; }
 .info-footer > small { grid-column: 1 / -1; }
+
+.shared-trip-shell { min-height: 100vh; background: radial-gradient(circle at 88% 8%, rgba(185, 220, 255, .7), transparent 27%), radial-gradient(circle at 8% 48%, rgba(223, 243, 111, .2), transparent 25%), #f8fbff; }
+.shared-trip-main { width: min(100% - 40px, 920px); margin: 0 auto; padding: 126px 0 54px; }
+.shared-trip-hero, .shared-itinerary, .shared-budget { border: 1px solid rgba(210, 224, 242, .86); border-radius: 24px; background: rgba(255, 255, 255, .86); box-shadow: 0 22px 64px rgba(30, 64, 175, .08); }
+.shared-trip-hero { position: relative; overflow: hidden; padding: clamp(28px, 6vw, 54px); }
+.shared-trip-hero::after { content: "旅"; pointer-events: none; position: absolute; right: -18px; top: -36px; color: rgba(37, 99, 235, .055); font-family: Georgia, serif; font-size: 180px; line-height: 1; transform: rotate(7deg); }
+.shared-trip-hero > * { position: relative; z-index: 1; }
+.shared-trip-hero > div:first-child > p, .shared-section-heading > span { margin: 0 0 9px; color: #2563eb; font-size: .75rem; font-weight: 900; letter-spacing: .16em; }
+.shared-trip-hero h1 { max-width: 690px; margin: 0; font-family: Georgia, "Nanum Myeongjo", serif; font-size: clamp(2.5rem, 7vw, 4.8rem); font-weight: 600; line-height: 1.08; letter-spacing: -.04em; }
+.shared-trip-hero > div:first-child > span { display: block; margin-top: 17px; color: #64748b; font-size: .95rem; line-height: 1.6; }
+.shared-trip-hero dl { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 28px 0 0; }
+.shared-trip-hero dl > div { padding: 14px 16px; border: 1px solid #dbe7f5; border-radius: 12px; background: #f8fbff; }
+.shared-trip-hero dt { color: #7b8799; font-size: .75rem; font-weight: 800; }
+.shared-trip-hero dd { margin: 5px 0 0; color: #1e3a8a; font-size: .95rem; font-weight: 900; }
+.shared-trip-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 22px; }
+.shared-trip-actions a, .shared-trip-actions button { min-height: 44px; display: inline-flex; align-items: center; justify-content: center; padding: 0 15px; border: 1px solid #bfd3ef; border-radius: 10px; color: #1d4ed8; background: white; cursor: pointer; font-size: .82rem; font-weight: 850; text-decoration: none; }
+.shared-trip-actions a { border-color: transparent; color: white; background: linear-gradient(135deg, #0f3d91, #2563eb); }
+.shared-trip-actions a:hover, .shared-trip-actions button:hover { transform: translateY(-1px); box-shadow: 0 9px 20px rgba(30, 64, 175, .11); }
+.shared-itinerary, .shared-budget { margin-top: 18px; padding: clamp(24px, 5vw, 42px); }
+.shared-section-heading h2 { margin: 0; font-family: Georgia, "Nanum Myeongjo", serif; font-size: clamp(1.7rem, 4vw, 2.35rem); font-weight: 600; }
+.shared-days { display: grid; gap: 13px; margin-top: 22px; }
+.shared-days article { overflow: hidden; border: 1px solid #d7e3f2; border-radius: 14px; background: white; }
+.shared-days article > header { display: flex; align-items: end; justify-content: space-between; gap: 14px; padding: 15px 17px; border-bottom: 1px solid #e7eef8; background: #f8fbff; }
+.shared-days article > header > div { display: grid; gap: 4px; }
+.shared-days article > header span { color: #2563eb; font-size: .75rem; font-weight: 900; letter-spacing: .13em; }
+.shared-days article > header strong { font-size: .95rem; }
+.shared-days article > header small { color: #64748b; font-size: .8rem; }
+.shared-days ol { margin: 0; padding: 9px 17px 13px; list-style: none; }
+.shared-days li { display: grid; grid-template-columns: 58px 20px minmax(0, 1fr); gap: 9px; padding: 11px 0; }
+.shared-days li time { color: #475569; font-size: .82rem; font-weight: 900; }
+.shared-days li > i { position: relative; width: 15px; height: 15px; margin-top: 1px; border: 4px solid white; border-radius: 50%; background: #2563eb; box-shadow: 0 0 0 1px #93c5fd; }
+.shared-days li:not(:last-child) > i::after { content: ""; position: absolute; top: 12px; left: 3px; width: 2px; height: 43px; background: #cbdcf4; }
+.shared-days li.is-meal > i { background: #f59e0b; box-shadow: 0 0 0 1px #fcd34d; }
+.shared-days li > div { display: grid; gap: 4px; }
+.shared-days li strong { font-size: .95rem; }
+.shared-days li small { color: #64748b; font-size: .78rem; }
+.shared-days li em { color: #b45309; font-size: .75rem; font-style: normal; line-height: 1.45; }
+.shared-place-list { display: grid; gap: 9px; margin: 22px 0 0; padding: 0; list-style: none; }
+.shared-place-list li { display: grid; grid-template-columns: 42px minmax(0, 1fr); gap: 13px; padding: 16px; border: 1px solid #dbe7f5; border-radius: 12px; background: #f8fbff; }
+.shared-place-list li > b { width: 38px; height: 38px; display: grid; place-items: center; border-radius: 50%; color: white; background: #0f3d91; font-family: Georgia, serif; font-size: .78rem; }
+.shared-place-list li > div { display: grid; gap: 5px; }
+.shared-place-list strong { font-size: 1rem; }
+.shared-place-list span { color: #2563eb; font-size: .78rem; font-weight: 800; }
+.shared-place-list p { margin: 2px 0 0; color: #64748b; font-size: .85rem; line-height: 1.6; }
+.shared-budget > div:last-of-type { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; margin-top: 20px; }
+.shared-budget p { display: grid; gap: 5px; margin: 0; padding: 19px; border-radius: 13px; color: white; background: linear-gradient(145deg, #0f3d91, #2563eb); }
+.shared-budget p span { color: #bfdbfe; font-size: .75rem; font-weight: 850; }
+.shared-budget p strong { font-family: Georgia, serif; font-size: 1.65rem; font-weight: 600; }
+.shared-budget p small { color: #dbeafe; font-size: .8rem; }
+.shared-budget > small { display: block; margin-top: 11px; color: #7b8799; font-size: .75rem; line-height: 1.55; }
+.shared-directions { min-height: 52px; display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-top: 18px; padding: 0 19px; border-radius: 12px; color: white; background: #0f172a; font-size: .9rem; font-weight: 850; text-decoration: none; }
+.shared-disclaimer { margin: 15px 0 0; color: #7b8799; font-size: .78rem; line-height: 1.6; text-align: center; }
 
 .map-panel { position: fixed; z-index: 0; inset: 0; overflow: hidden; background: #e8f0fa; }
 .map-panel iframe { position: absolute; inset: -8%; width: 116%; height: 116%; border: 0; filter: saturate(.52) sepia(.1) contrast(.94); }
@@ -681,6 +752,8 @@ button.timeline-item:hover div, button.timeline-item.active div { color: #1d4ed8
   .nearby-copy > small { white-space: normal; }
   .nearby-list article > button { grid-column: 1 / -1; width: 100%; min-height: 34px; }
   .course-builder, .itinerary-builder { margin-inline: -8px; padding: 20px 14px; }
+  .budget-calculator { margin-inline: -8px; padding: 20px 14px; }
+  .budget-fields, .budget-summary { grid-template-columns: 1fr; }
   .course-place-list > div { grid-template-columns: 22px minmax(0, 1fr); }
   .course-place-actions { grid-column: 1 / -1; grid-template-columns: repeat(4, 1fr); min-height: 34px; border-top: 1px solid var(--line); border-left: 0; }
   .preference-grid { grid-template-columns: 1fr; }
@@ -710,6 +783,46 @@ button.timeline-item:hover div, button.timeline-item.active div { color: #1d4ed8
   .info-footer { width: min(100% - 28px, 960px); grid-template-columns: 1fr; }
   .info-footer nav { justify-content: flex-start; }
   .info-footer > small { grid-column: auto; }
+  .shared-trip-main { width: min(100% - 28px, 920px); padding-top: 104px; }
+  .shared-trip-hero { border-radius: 19px; }
+  .shared-trip-hero dl, .shared-budget > div:last-of-type { grid-template-columns: 1fr; }
+  .shared-trip-actions { display: grid; grid-template-columns: 1fr; }
+  .shared-days article > header { align-items: start; flex-direction: column; }
+}
+
+@media print {
+  @page { margin: 13mm; }
+  html { scroll-behavior: auto; }
+  body { background: white !important; color: #111827; }
+  .no-print, .topbar, .map-panel, .guided-planner, .course-builder, .saved-courses, .tip-card, .site-footer, .disclaimer { display: none !important; }
+  .app-shell { min-height: 0; overflow: visible; }
+  .route-panel { width: 100%; height: auto; min-height: 0; padding: 0; overflow: visible; background: white; }
+  .route-panel::before { display: none; }
+  .route-heading { margin: 0 0 18px; padding: 0 0 16px; border: 0; border-bottom: 2px solid #1e3a8a; border-radius: 0; background: white; box-shadow: none; }
+  .route-heading h1 { font-size: 30pt; }
+  .itinerary-builder, .budget-calculator { margin: 0 0 18px; padding: 0; border: 0; background: white; box-shadow: none; backdrop-filter: none; }
+  .itinerary-builder > .saved-heading, .itinerary-intro, .preference-grid, .preference-group, .meal-toggle, .itinerary-generate, .itinerary-help, .plan-warnings { display: none !important; }
+  .itinerary-result { margin-top: 0; }
+  .itinerary-result-head { padding-top: 0; }
+  .itinerary-day, .budget-fields > label, .budget-summary { break-inside: avoid; box-shadow: none; }
+  .itinerary-day { opacity: 1 !important; animation: none !important; }
+  .itinerary-day-meta button, .timeline-time-editor { display: none !important; }
+  .timeline-item { grid-template-columns: 48px 22px minmax(0, 1fr); opacity: 1 !important; animation: none !important; }
+  .print-only { display: block; }
+  .budget-fields { grid-template-columns: repeat(2, 1fr); }
+  .budget-input-wrap input { border: 0; padding: 0; background: transparent; }
+  .budget-summary { border: 1px solid #cbd5e1; }
+  .budget-summary > div { color: #111827; background: white; }
+  .budget-summary span, .budget-summary small { color: #475569; }
+  [data-reveal] { opacity: 1 !important; filter: none !important; transform: none !important; }
+  .shared-trip-shell { background: white; }
+  .shared-trip-main { width: 100%; padding: 0; }
+  .shared-trip-hero, .shared-itinerary, .shared-budget { margin: 0 0 14px; padding: 18px; border: 1px solid #cbd5e1; border-radius: 0; background: white; box-shadow: none; }
+  .shared-trip-hero h1 { font-size: 30pt; }
+  .shared-days article, .shared-place-list li, .shared-budget p { break-inside: avoid; }
+  .shared-budget p { border: 1px solid #cbd5e1; color: #111827; background: white; }
+  .shared-budget p span, .shared-budget p small { color: #475569; }
+  .shared-disclaimer { color: #475569; }
 }
 
 @media (prefers-reduced-motion: reduce) {

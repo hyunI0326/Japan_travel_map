@@ -15,6 +15,13 @@
       "when": 1787638561666,
       "tag": "0001_cooing_meteorite",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1788625808689,
+      "tag": "0002_ambiguous_paibok",
+      "breakpoints": true
     }
   ]
 }

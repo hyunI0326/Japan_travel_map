@@ -2,18 +2,23 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "./auth-context";
+import BudgetCalculator from "./budget-calculator";
 import PolicyLinks from "./policy-links";
 import SiteLink from "./site-link";
 import TravelMap from "./travel-map";
 import { authClient } from "@/lib/auth-client";
+import { trackFunnelEvent } from "@/lib/analytics-client";
+import {
+  createBudgetEstimate,
+  normalizeBudgetEstimate,
+  type BudgetEstimate,
+} from "@/lib/budget";
+import { parseSharedPlan, type SharedPlan } from "@/lib/share-types";
 import {
   buildCustomCourse,
   budgetLabels,
   companionLabels,
   companionTypes,
-  isPlanPreferences,
-  isTravelPlaceSnapshot,
-  isTravelStyle,
   paceLabels,
   styleLabels,
   transportLabels,
@@ -44,48 +49,7 @@ const defaultPreferences: PlanPreferences = {
   includeMeals: true,
 };
 
-type SharedPlan = {
-  regionId: string;
-  style: TravelStyle;
-  places: TravelPlace[];
-  preferences: PlanPreferences;
-  lockedPlaceIds: string[];
-  selectedLodging?: TravelPlace | null;
-};
-
 const draftStorageKey = "momotabi:planner-draft:v1";
-
-function parseSharedPlan(parsed: unknown): SharedPlan | null {
-  if (!parsed || typeof parsed !== "object") return null;
-  const value = parsed as Record<string, unknown>;
-  if (
-    typeof value.regionId !== "string" ||
-    !isTravelStyle(value.style) ||
-    !Array.isArray(value.places) ||
-    value.places.length === 0 ||
-    value.places.length > 9 ||
-    value.places.some((place) => !isTravelPlaceSnapshot(place)) ||
-    !isPlanPreferences(value.preferences) ||
-    !Array.isArray(value.lockedPlaceIds) ||
-    value.lockedPlaceIds.some((id) => typeof id !== "string") ||
-    (value.selectedLodging !== undefined &&
-      value.selectedLodging !== null &&
-      !isTravelPlaceSnapshot(value.selectedLodging))
-  ) {
-    return null;
-  }
-  const places = value.places as TravelPlace[];
-  return {
-    regionId: value.regionId,
-    style: value.style,
-    places,
-    preferences: value.preferences,
-    lockedPlaceIds: value.lockedPlaceIds.filter((id) =>
-      places.some((place) => place.id === id),
-    ),
-    selectedLodging: value.selectedLodging as TravelPlace | null | undefined,
-  };
-}
 
 function encodeSharedPlan(plan: SharedPlan) {
   const bytes = new TextEncoder().encode(JSON.stringify(plan));
@@ -306,13 +270,16 @@ export default function TripPlanner({
   const [lockedPlaceIds, setLockedPlaceIds] = useState<string[]>([]);
   const [draggedPlaceId, setDraggedPlaceId] = useState("");
   const [preferences, setPreferences] = useState<PlanPreferences>(defaultPreferences);
+  const [budgetEstimate, setBudgetEstimate] = useState<BudgetEstimate>(() =>
+    createBudgetEstimate(defaultPreferences),
+  );
   const [itineraryPlan, setItineraryPlan] = useState<ItineraryPlan | null>(null);
   const [itineraryState, setItineraryState] = useState<
     "idle" | "loading" | "checking" | "ready" | "error"
   >("idle");
   const [placeDetailsById, setPlaceDetailsById] = useState<Record<string, PlaceDetails>>({});
   const [detailErrorIds, setDetailErrorIds] = useState<string[]>([]);
-  const [shareState, setShareState] = useState<"idle" | "copied" | "error">("idle");
+  const [shareState, setShareState] = useState<"idle" | "creating" | "copied" | "error">("idle");
   const [savedCourses, setSavedCourses] = useState<TravelCourse[]>([]);
   const [catalogState, setCatalogState] = useState<"idle" | "loading" | "error">("idle");
   const [recommendationState, setRecommendationState] = useState<"idle" | "loading" | "error">("idle");
@@ -435,9 +402,11 @@ export default function TripPlanner({
   useEffect(() => {
     if (sharedPlanLoadedRef.current) return;
     sharedPlanLoadedRef.current = true;
-    const encoded = new URLSearchParams(window.location.search).get("plan");
+    const search = new URLSearchParams(window.location.search);
+    const encoded = search.get("plan");
+    const sharedSlug = search.get("share");
     let initialPlan = encoded ? decodeSharedPlan(encoded) : null;
-    if (!encoded) {
+    if (!encoded && !sharedSlug) {
       try {
         const stored = window.localStorage.getItem(draftStorageKey);
         initialPlan = stored ? parseSharedPlan(JSON.parse(stored)) : null;
@@ -446,17 +415,25 @@ export default function TripPlanner({
         window.localStorage.removeItem(draftStorageKey);
       }
     }
-    if (!initialPlan) {
+    if (!initialPlan && !sharedSlug) {
       queueMicrotask(() => {
         if (encoded) setShareState("error");
         setDraftReady(true);
       });
       return;
     }
-    const sharedPlan = initialPlan;
     let cancelled = false;
     async function hydrateSharedPlan() {
       try {
+        let sharedPlan = initialPlan;
+        if (sharedSlug) {
+          if (!/^[a-f0-9]{12}$/.test(sharedSlug)) throw new Error("share_invalid");
+          const sharedResponse = await fetch(`/api/share/${sharedSlug}`);
+          if (!sharedResponse.ok) throw new Error("share_failed");
+          const sharedData = (await sharedResponse.json()) as { plan?: unknown };
+          sharedPlan = parseSharedPlan(sharedData.plan);
+        }
+        if (!sharedPlan) throw new Error("share_invalid");
         let nextCatalog = catalog;
         if (sharedPlan.regionId !== catalog.region.id) {
           const response = await fetch(`/api/places?regionId=${encodeURIComponent(sharedPlan.regionId)}`);
@@ -480,6 +457,13 @@ export default function TripPlanner({
         setSelectedLodging(sharedPlan.selectedLodging ?? null);
         setLodgingQuery(sharedPlan.selectedLodging?.name ?? sharedPlan.preferences.startLocation);
         setActivePlaceId(sharedPlan.places[0]?.id ?? "");
+        setItineraryPlan(sharedPlan.itineraryPlan ?? null);
+        setItineraryState(sharedPlan.itineraryPlan ? "ready" : "idle");
+        setBudgetEstimate(
+          sharedPlan.budget
+            ? normalizeBudgetEstimate(sharedPlan.budget)
+            : createBudgetEstimate(sharedPlan.preferences),
+        );
       } catch {
         if (!cancelled) setShareState("error");
       } finally {
@@ -505,11 +489,15 @@ export default function TripPlanner({
       preferences,
       lockedPlaceIds,
       selectedLodging,
+      itineraryPlan,
+      budget: budgetEstimate,
     };
     window.localStorage.setItem(draftStorageKey, JSON.stringify(draft));
   }, [
     draftReady,
     hasChosenRegion,
+    budgetEstimate,
+    itineraryPlan,
     lockedPlaceIds,
     preferences,
     regionId,
@@ -573,6 +561,11 @@ export default function TripPlanner({
         window.sessionStorage.removeItem("momotabi:sync-draft-on-login");
         setSavedCourses((current) => [data.course, ...current.filter((saved) => saved.id !== data.course.id)]);
         setSaveState("saved");
+        trackFunnelEvent("trip_saved", {
+          regionId,
+          placeCount: selectedPlaces.length,
+          dayCount: course.dayCount,
+        });
       })
       .catch(() => setSaveState("error"));
   }, [course.dayCount, draftReady, regionId, selectedPlaces, style, user]);
@@ -586,6 +579,10 @@ export default function TripPlanner({
 
   async function loadCatalog(nextRegionId: string) {
     if (hasChosenRegion && nextRegionId === regionId) return;
+    trackFunnelEvent("region_selected", {
+      regionId: nextRegionId,
+      dayCount: preferences.dayCount,
+    });
 
     setHasChosenRegion(true);
     setRegionId(nextRegionId);
@@ -650,6 +647,13 @@ export default function TripPlanner({
           : [...current, place],
     );
     if (!selected) setActivePlaceId(place.id);
+    if (!selected) {
+      trackFunnelEvent("place_added", {
+        regionId,
+        placeCount: Math.min(9, selectedPlaces.length + 1),
+        dayCount: preferences.dayCount,
+      });
+    }
     setRecommendations([]);
     setRecommendationProvider(null);
     setRecommendationState("idle");
@@ -687,6 +691,11 @@ export default function TripPlanner({
       setRecommendations(data.recommendations);
       setRecommendationProvider(data.provider);
       setRecommendationState("idle");
+      trackFunnelEvent("recommendations_generated", {
+        regionId,
+        placeCount: selectedPlaces.length,
+        dayCount: preferences.dayCount,
+      });
     } catch {
       setRecommendationState("error");
     }
@@ -740,6 +749,13 @@ export default function TripPlanner({
           : [...current, place],
     );
     if (!selected) setActivePlaceId(place.id);
+    if (!selected && selectedPlaces.length < 9) {
+      trackFunnelEvent("place_added", {
+        regionId,
+        placeCount: selectedPlaces.length + 1,
+        dayCount: preferences.dayCount,
+      });
+    }
     resetGeneratedPlan();
   }
 
@@ -818,6 +834,11 @@ export default function TripPlanner({
       );
       setItineraryPlan(adjustPlanForOpeningHours(data.plan, detailsMap));
       setItineraryState("ready");
+      trackFunnelEvent("itinerary_generated", {
+        regionId,
+        placeCount: orderedPlaces.length,
+        dayCount: data.plan.days.length,
+      });
     } catch {
       setItineraryState("error");
     }
@@ -912,7 +933,11 @@ export default function TripPlanner({
   }
 
   function updatePreferences<Key extends keyof PlanPreferences>(key: Key, value: PlanPreferences[Key]) {
-    setPreferences((current) => ({ ...current, [key]: value }));
+    const nextPreferences = { ...preferences, [key]: value };
+    setPreferences(nextPreferences);
+    if (["budget", "companion", "dayCount", "transport"].includes(key)) {
+      setBudgetEstimate(createBudgetEstimate(nextPreferences));
+    }
     if (key === "startLocation") setSelectedLodging(null);
     if (key === "transport") {
       setRecommendations([]);
@@ -943,23 +968,52 @@ export default function TripPlanner({
 
   async function shareCurrentPlan() {
     if (selectedPlaces.length === 0) return;
-    const encoded = encodeSharedPlan({
+    const sharedPlan: SharedPlan = {
       regionId,
       style,
       places: selectedPlaces,
       preferences,
       lockedPlaceIds,
       selectedLodging,
-    });
-    const url = new URL(window.location.href);
-    url.searchParams.set("plan", encoded);
+      itineraryPlan,
+      budget: budgetEstimate,
+    };
+    setShareState("creating");
     try {
+      const response = await fetch("/api/share", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(sharedPlan),
+      });
+      if (!response.ok) throw new Error("share_failed");
+      const data = (await response.json()) as { path: string };
+      const url = new URL(data.path, window.location.origin);
       await navigator.clipboard.writeText(url.toString());
-      window.history.replaceState(null, "", url);
       setShareState("copied");
+      trackFunnelEvent("share_created", {
+        regionId,
+        placeCount: selectedPlaces.length,
+        dayCount: preferences.dayCount,
+      });
     } catch {
-      setShareState("error");
+      const fallbackUrl = new URL(window.location.origin);
+      fallbackUrl.searchParams.set("plan", encodeSharedPlan(sharedPlan));
+      try {
+        await navigator.clipboard.writeText(fallbackUrl.toString());
+        setShareState("copied");
+      } catch {
+        setShareState("error");
+      }
     }
+  }
+
+  function printCurrentPlan() {
+    trackFunnelEvent("print_opened", {
+      regionId,
+      placeCount: selectedPlaces.length,
+      dayCount: preferences.dayCount,
+    });
+    window.print();
   }
 
   function exportCalendar() {
@@ -1013,7 +1067,9 @@ export default function TripPlanner({
       setCatalogState("error");
     }
     setStyle(savedCourse.style);
-    setPreferences((current) => ({ ...current, dayCount: savedCourse.dayCount }));
+    const nextPreferences = { ...preferences, dayCount: savedCourse.dayCount };
+    setPreferences(nextPreferences);
+    setBudgetEstimate(createBudgetEstimate(nextPreferences));
     setRecommendations([]);
     setRecommendationProvider(null);
     setRecommendationKind("attractions");
@@ -1053,6 +1109,11 @@ export default function TripPlanner({
       const data = (await response.json()) as { course: TravelCourse };
       setSavedCourses((current) => [data.course, ...current.filter((saved) => saved.id !== data.course.id)]);
       setSaveState("saved");
+      trackFunnelEvent("trip_saved", {
+        regionId,
+        placeCount: selectedPlaces.length,
+        dayCount: course.dayCount,
+      });
     } catch {
       setSaveState("error");
     }
@@ -1493,6 +1554,7 @@ export default function TripPlanner({
                             <span>방문시간</span>
                             <input type="time" value={activity.scheduledTime} onChange={(event) => updatePlannedVisitTime(day.dayNumber, activity.place.id, event.target.value)} aria-label={`${activity.place.name} 방문시간`} />
                           </label>
+                          <time className="print-only">{activity.scheduledTime}</time>
                           <i aria-hidden="true" />
                           <button className="timeline-place-select" type="button" onClick={() => setActivePlaceId(activity.place.id)}>
                             <strong>{activity.place.name}</strong><small>{activity.travelMinutesFromPrevious > 0 ? `이전 장소에서 ${formatDuration(activity.travelMinutesFromPrevious)} · ` : ""}{activity.endTime}까지</small>{activity.openingNote && <em>{activity.openingNote}</em>}
@@ -1506,13 +1568,21 @@ export default function TripPlanner({
             </div>
           )}
 
-          <div className="export-actions" aria-label="일정 공유와 내보내기">
-            <button type="button" onClick={shareCurrentPlan} disabled={selectedPlaces.length === 0}>{shareState === "copied" ? "링크 복사됨 ✓" : "공유 링크 복사"}</button>
+          <div className="export-actions no-print" aria-label="일정 공유와 내보내기">
+            <button type="button" onClick={shareCurrentPlan} disabled={selectedPlaces.length === 0 || shareState === "creating"}>{shareState === "creating" ? "짧은 링크 만드는 중…" : shareState === "copied" ? "링크 복사됨 ✓" : "짧은 공유 링크"}</button>
             <a href={googleDirectionsUrl()} target="_blank" rel="noreferrer" aria-disabled={selectedPlaces.length === 0}>Google Maps에서 열기 ↗</a>
             <button type="button" onClick={exportCalendar} disabled={!itineraryPlan || !preferences.startDate}>캘린더로 내보내기</button>
+            <button type="button" onClick={printCurrentPlan} disabled={selectedPlaces.length === 0}>인쇄·PDF 저장</button>
           </div>
           {shareState === "error" && <p className="inline-error" role="alert">공유 링크를 복사하지 못했어요. 주소창의 링크를 직접 복사해 주세요.</p>}
         </section>
+
+        <BudgetCalculator
+          value={budgetEstimate}
+          dayCount={preferences.dayCount}
+          regionId={regionId}
+          onChange={setBudgetEstimate}
+        />
 
         <section className="saved-courses" id="saved" aria-labelledby="saved-title" data-reveal>
           <div className="saved-heading"><div><span>SAVED ROUTES</span><h2 id="saved-title">저장한 코스</h2></div>{user && <small>{savedCourses.length}개 저장됨</small>}</div>

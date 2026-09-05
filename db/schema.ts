@@ -208,3 +208,38 @@ export const userPreferences = sqliteTable("userPreference", {
   }),
   updatedAt: updatedAt(),
 });
+
+export const sharedTrips = sqliteTable(
+  "sharedTrip",
+  {
+    slug: text("slug").primaryKey(),
+    regionId: text("regionId")
+      .notNull()
+      .references(() => regions.id, { onDelete: "restrict" }),
+    title: text("title").notNull(),
+    payload: text("payload").notNull(),
+    placeCount: integer("placeCount").notNull(),
+    dayCount: integer("dayCount").notNull(),
+    createdAt: createdAt(),
+  },
+  (table) => [index("idx_shared_trip_created_at").on(table.createdAt)],
+);
+
+export const analyticsDaily = sqliteTable(
+  "analyticsDaily",
+  {
+    date: text("date").notNull(),
+    event: text("event").notNull(),
+    regionId: text("regionId").notNull().default(""),
+    count: integer("count").notNull().default(0),
+    updatedAt: updatedAt(),
+  },
+  (table) => [
+    uniqueIndex("analytics_daily_event_region_unique").on(
+      table.date,
+      table.event,
+      table.regionId,
+    ),
+    index("idx_analytics_daily_date").on(table.date),
+  ],
+);
