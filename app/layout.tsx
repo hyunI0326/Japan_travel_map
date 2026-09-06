@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { env } from "cloudflare:workers";
 import { AuthProvider } from "./auth-context";
 import { getSession } from "@/lib/auth";
 import "./globals.css";
@@ -7,6 +6,7 @@ import "./globals.css";
 export const dynamic = "force-dynamic";
 
 const origin = "https://joemechu.com";
+const adsenseClientId = "ca-pub-6551515016676899";
 const title = "모모타비 — 취향대로 만드는 일본 여행 코스";
 const description =
   "지역과 여행 스타일을 고르면 관광지를 추천하고, 로그인한 계정에 코스를 저장해 지도에서 다시 보여주는 일본 여행 플래너.";
@@ -39,18 +39,16 @@ export const metadata: Metadata = {
 
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   const session = await getSession();
-  const adsenseClientId = (env as unknown as { GOOGLE_ADSENSE_CLIENT_ID?: string })
-    .GOOGLE_ADSENSE_CLIENT_ID?.trim();
-  const verifiedAdsenseClientId = /^ca-pub-\d{16}$/.test(adsenseClientId || "")
-    ? adsenseClientId
-    : undefined;
 
   return (
     <html lang="ko">
       <head>
-        {verifiedAdsenseClientId && (
-          <meta name="google-adsense-account" content={verifiedAdsenseClientId} />
-        )}
+        <meta name="google-adsense-account" content={adsenseClientId} />
+        <script
+          async
+          src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${adsenseClientId}`}
+          crossOrigin="anonymous"
+        />
       </head>
       <body>
         <AuthProvider
