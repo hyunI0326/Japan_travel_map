@@ -31,14 +31,13 @@ button:focus-visible, a:focus-visible { outline: 3px solid rgba(37, 99, 235, .35
 
 .landing-intro {
   position: relative;
-  z-index: 20;
-  height: 150dvh;
+  z-index: 3;
+  height: 100dvh;
   background: #eff6ff;
 }
 
 .landing-stage {
-  position: sticky;
-  top: 0;
+  position: relative;
   display: grid;
   height: 100dvh;
   overflow: hidden;
@@ -164,33 +163,19 @@ button:focus-visible, a:focus-visible { outline: 3px solid rgba(37, 99, 235, .35
 .planner-experience { position: relative; z-index: 2; min-height: 100dvh; }
 
 @supports (animation-timeline: scroll()) {
-  .landing-intro,
-  .landing-stage,
   .landing-copy,
   .landing-grid,
   .landing-skip,
   .journey-object {
     animation-timeline: scroll(root);
-    animation-range: 0 115dvh;
+    animation-range: 0 70dvh;
     animation-fill-mode: both;
   }
 
-  .landing-intro { animation-name: landing-intro-complete; }
-  .landing-stage { animation-name: landing-stage-leave; }
   .landing-copy { animation-name: landing-copy-leave; }
   .landing-grid { animation-name: landing-grid-leave; }
   .landing-skip { animation-name: landing-skip-leave; }
   .journey-object { animation-name: journey-object-scroll; }
-}
-
-@keyframes landing-intro-complete {
-  0%, 99% { z-index: 20; pointer-events: auto; }
-  100% { z-index: 0; pointer-events: none; }
-}
-
-@keyframes landing-stage-leave {
-  0%, 65% { opacity: 1; }
-  100% { opacity: 0; }
 }
 
 @keyframes landing-copy-leave {
@@ -885,7 +870,7 @@ button.timeline-item:hover div, button.timeline-item.active div { color: #1d4ed8
 
 @media (max-width: 900px) {
   .app-shell { min-height: 100vh; overflow: visible; }
-  .landing-intro { height: 135dvh; }
+  .landing-intro { height: 100dvh; }
   .landing-copy { top: max(6.5rem, env(safe-area-inset-top)); }
   .journey-object { width: min(78vw, 28rem); height: min(78vw, 28rem); }
   .topbar { top: 12px; width: calc(100% - 24px); min-height: 58px; padding: 7px 8px 7px 14px; border-radius: 17px; }
@@ -903,7 +888,7 @@ button.timeline-item:hover div, button.timeline-item.active div { color: #1d4ed8
 }
 
 @media (max-width: 520px) {
-  .landing-intro { height: 125dvh; }
+  .landing-intro { height: 100dvh; }
   .landing-copy { right: 1.5rem; top: max(6rem, env(safe-area-inset-top)); }
   .landing-copy h1 { font-size: clamp(2.8rem, 15vw, 4.25rem); line-height: 1; }
   .landing-skip { right: 1rem; bottom: max(1.25rem, env(safe-area-inset-bottom)); }
