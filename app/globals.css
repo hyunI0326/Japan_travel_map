@@ -178,6 +178,21 @@ button:focus-visible, a:focus-visible { outline: 3px solid rgba(37, 99, 235, .35
   .journey-object { animation-name: journey-object-scroll; }
 }
 
+/*
+ * Tie the exit motion to the intro itself when view timelines are available.
+ * The same timeline runs in reverse as the user scrolls back up, restoring
+ * the travel scene without keeping it layered above the planner.
+ */
+@supports (animation-timeline: view()) {
+  .landing-copy,
+  .landing-grid,
+  .landing-skip,
+  .journey-object {
+    animation-timeline: view();
+    animation-range: exit 0% exit 100%;
+  }
+}
+
 @keyframes landing-copy-leave {
   0%, 42% { opacity: 1; transform: translateY(0); }
   100% { opacity: 0; transform: translateY(-3rem); }
