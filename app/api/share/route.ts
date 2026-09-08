@@ -1,3 +1,4 @@
+import { publicPlan } from "@/lib/trip-journal";
 import { createSharedTrip } from "@/lib/shared-trips";
 import { parseSharedPlan } from "@/lib/share-types";
 
@@ -14,7 +15,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const shared = await createSharedTrip(plan);
+    const shared = await createSharedTrip(publicPlan(plan));
     return Response.json(
       { ...shared, path: `/trip/${shared.slug}` },
       { status: 201 },

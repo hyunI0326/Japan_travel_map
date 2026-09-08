@@ -1,3 +1,4 @@
+import { parseSharedPlan, type SharedPlan } from "./share-types";
 import { ensureDatabase } from "@/db/init";
 import { getD1 } from "@/db";
 import { mustVisitPlaceIdsByRegion } from "@/db/travel-seed";
@@ -371,6 +372,8 @@ export async function saveCourse({
   dayCount,
   placeIds,
   externalPlaces = [],
+  plan,
+  existingId,
 }: {
   userId: string;
   regionId: string;
@@ -378,7 +381,12 @@ export async function saveCourse({
   dayCount: number;
   placeIds?: string[];
   externalPlaces?: TravelPlace[];
+  plan?: SharedPlan;
+  existingId?: string;
 }) {
+  await ensureDatabase();
+  const existing = existingId ? await getD1().prepare('SELECT "title" FROM "itinerary" WHERE "id" = ? AND "userId" = ?').bind(existingId, userId).first<{ title: string }>() : null;
+  if (existingId && !existing) throw new Error("TRIP_NOT_FOUND");
   let course: TravelCourse;
   if (placeIds?.length) {
     const { region, placeRows } = await getRegionAndPlaceRows(regionId);
@@ -428,7 +436,7 @@ export async function saveCourse({
     const placeMap = new Map(
       [...placeRows, ...externalPlaceRows].map((place) => [place.id, place]),
     );
-    const uniquePlaceIds = [...new Set(placeIds)].slice(0, 9);
+    const uniquePlaceIds = [...new Set(placeIds)].slice(0, 21);
     const selectedPlaces = uniquePlaceIds.map((id) => placeMap.get(id));
     if (selectedPlaces.some((place) => !place)) throw new Error("PLACE_NOT_FOUND");
     course = buildCustomCourse({
@@ -441,10 +449,17 @@ export async function saveCourse({
     course = await recommendCourse({ regionId, style, dayCount });
   }
   const database = getD1();
-  const itineraryId = crypto.randomUUID();
+  if (existing) course.title = existing.title;
+  if (plan?.itineraryPlan) {
+    course.days = plan.itineraryPlan.days.map((day) => ({
+      dayNumber: day.dayNumber, label: `${course.region.nameKo} ${day.dayNumber}일차`,
+      transit: "", places: day.activities.flatMap((activity) => activity.kind === "place" ? [activity.place] : []),
+    }));
+  }
+  const itineraryId = existingId ?? crypto.randomUUID();
   const now = Date.now();
   const statements = [
-    database
+    existingId ? database.prepare(`UPDATE "itinerary" SET "regionId" = ?, "style" = ?, "dayCount" = ?, "updatedAt" = ? WHERE "id" = ? AND "userId" = ?`).bind(regionId, style, course.dayCount, now, itineraryId, userId) : database
       .prepare(
         `INSERT INTO "itinerary"
           ("id", "userId", "regionId", "title", "style", "dayCount", "createdAt", "updatedAt")
@@ -472,6 +487,8 @@ export async function saveCourse({
       .bind(userId, style, regionId, now),
   ];
 
+  if (existingId) statements.push(database.prepare('DELETE FROM "itineraryItem" WHERE "itineraryId" = ?').bind(itineraryId));
+  if (plan) statements.push(database.prepare(`INSERT INTO "itineraryPlan" ("itineraryId", "payload") VALUES (?, ?) ON CONFLICT("itineraryId") DO UPDATE SET "payload" = excluded."payload"`).bind(itineraryId, JSON.stringify(plan)));
   for (const day of course.days) {
     day.places.forEach((place, index) => {
       statements.push(
@@ -487,7 +504,7 @@ export async function saveCourse({
             place.id,
             day.dayNumber,
             index + 1,
-            place.suggestedTime,
+            plan?.itineraryPlan?.days.find((d) => d.dayNumber === day.dayNumber)?.activities.find((a) => a.kind === "place" && a.place.id === place.id)?.scheduledTime ?? place.suggestedTime,
             now,
           ),
       );
@@ -495,7 +512,7 @@ export async function saveCourse({
   }
 
   await database.batch(statements);
-  return { ...course, id: itineraryId, savedAt: now };
+  return { ...course, id: itineraryId, savedAt: now, savedPlan: plan };
 }
 
 export async function getSavedCourses(userId: string): Promise<TravelCourse[]> {
@@ -579,6 +596,12 @@ export async function getSavedCourses(userId: string): Promise<TravelCourse[]> {
     course.days.forEach((day) => {
       day.transit = dayTransit(day.places);
     });
+  }
+  const snapshots = await getD1().prepare(`SELECT p."itineraryId", p."payload" FROM "itineraryPlan" p JOIN "itinerary" i ON i."id" = p."itineraryId" WHERE i."userId" = ? ORDER BY i."updatedAt" DESC LIMIT 10`).bind(userId).all<{ itineraryId: string; payload: string }>();
+  for (const row of snapshots.results) {
+    const course = courses.get(row.itineraryId);
+    if (!course) continue;
+    try { course.savedPlan = parseSharedPlan(JSON.parse(row.payload)) ?? undefined; } catch { /* Legacy or invalid snapshots retain the place list. */ }
   }
   return [...courses.values()];
 }
@@ -692,6 +715,7 @@ export async function duplicateCourse({
         ),
     ),
   ];
+  statements.push(database.prepare(`INSERT INTO "itineraryPlan" ("itineraryId", "payload") SELECT ?, "payload" FROM "itineraryPlan" WHERE "itineraryId" = ?`).bind(newId, itineraryId));
   await database.batch(statements);
   return newId;
 }

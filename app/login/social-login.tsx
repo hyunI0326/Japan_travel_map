@@ -31,11 +31,13 @@ export default function SocialLogin({ providers }: SocialLoginProps) {
     if (!providers[provider]) return;
     setPendingProvider(provider);
     setError("");
-    window.sessionStorage.setItem("momotabi:sync-draft-on-login", "1");
+    const returnTo = new URLSearchParams(window.location.search).get("returnTo") ?? "/";
+    const callbackURL = /^\/trip\/[a-f0-9]{12}$/.test(returnTo) ? returnTo : "/";
+    if (callbackURL === "/") window.sessionStorage.setItem("momotabi:sync-draft-on-login", "1");
 
     const result = await authClient.signIn.social({
       provider,
-      callbackURL: "/",
+      callbackURL,
       errorCallbackURL: "/login?error=oauth",
     });
 
@@ -54,7 +56,7 @@ export default function SocialLogin({ providers }: SocialLoginProps) {
         여기서 이어가세요.
       </h1>
       <p className="auth-intro">
-        저장한 코스와 찜한 장소를 다시 만나보세요.
+        근교 추천을 받고 저장한 코스를 다시 만나보세요.
         <br />
         가입 없이 소셜 계정으로 바로 시작할 수 있어요.
       </p>

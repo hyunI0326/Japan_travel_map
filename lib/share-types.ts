@@ -9,7 +9,10 @@ import {
 } from "./travel-types";
 import { isBudgetEstimate, type BudgetEstimate } from "./budget";
 
+import { isTripJournal, type TripJournal } from "./trip-journal";
+
 export type SharedPlan = {
+  journal?: TripJournal;
   regionId: string;
   style: TravelStyle;
   places: TravelPlace[];
@@ -27,7 +30,7 @@ function isItineraryPlan(value: unknown): value is ItineraryPlan {
     !Array.isArray(plan.days) ||
     plan.days.length === 0 ||
     plan.days.length > 30 ||
-    (plan.provider !== "google" && plan.provider !== "estimate") ||
+    (plan.provider !== "google" && plan.provider !== "estimate" && plan.provider !== "mixed") ||
     !Array.isArray(plan.warnings) ||
     plan.warnings.some((warning) => typeof warning !== "string" || warning.length > 300)
   ) return false;
@@ -41,7 +44,7 @@ function isItineraryPlan(value: unknown): value is ItineraryPlan {
       typeof day.totalTravelMinutes !== "number" ||
       typeof day.totalDistanceKm !== "number" ||
       !Array.isArray(day.activities) ||
-      day.activities.length > 20
+      day.activities.length > 42
     ) return false;
     return day.activities.every((entryActivity) => {
       if (!entryActivity || typeof entryActivity !== "object") return false;
@@ -75,9 +78,10 @@ export function parseSharedPlan(parsed: unknown): SharedPlan | null {
     typeof value.regionId !== "string" ||
     !/^[a-z0-9-]{1,40}$/.test(value.regionId) ||
     !isTravelStyle(value.style) ||
+    (value.journal !== undefined && !isTripJournal(value.journal)) ||
     !Array.isArray(value.places) ||
     value.places.length === 0 ||
-    value.places.length > 9 ||
+    value.places.length > 21 ||
     value.places.some((place) => !isTravelPlaceSnapshot(place)) ||
     !isPlanPreferences(value.preferences) ||
     !Array.isArray(value.lockedPlaceIds) ||
@@ -95,6 +99,7 @@ export function parseSharedPlan(parsed: unknown): SharedPlan | null {
 
   const places = value.places as TravelPlace[];
   return {
+    journal: value.journal as TripJournal | undefined,
     regionId: value.regionId,
     style: value.style,
     places,

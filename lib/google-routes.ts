@@ -1,5 +1,5 @@
 import { env } from "cloudflare:workers";
-import type { TransportMode, TravelPlace } from "@/lib/travel-types";
+import { isPublicTransportMode, type TransportMode, type TravelPlace } from "@/lib/travel-types";
 
 type GoogleMapsEnvironment = {
   GOOGLE_MAPS_API_KEY?: string;
@@ -48,7 +48,7 @@ function waypoint(place: TravelPlace, mode?: TransportMode) {
   if (place.id.startsWith("google:")) {
     return { placeId: place.id.slice("google:".length) };
   }
-  if (mode === "transit") {
+  if (mode && isPublicTransportMode(mode)) {
     return { address: `${place.name}, Japan` };
   }
   return {
@@ -75,9 +75,19 @@ function travelMode(mode: TransportMode) {
 function transitDepartureTime(mode: TransportMode) {
   // Giving transit a small scheduling buffer avoids asking for a journey whose
   // first departure has already passed while the request is being processed.
-  return mode === "transit"
+  return isPublicTransportMode(mode)
     ? { departureTime: new Date(Date.now() + 5 * 60 * 1_000).toISOString() }
     : {};
+}
+
+function transitPreferences(mode: TransportMode) {
+  if (mode === "subway") {
+    return { transitPreferences: { allowedTravelModes: ["SUBWAY"] } };
+  }
+  if (mode === "bus") {
+    return { transitPreferences: { allowedTravelModes: ["BUS"] } };
+  }
+  return {};
 }
 
 export type RouteMatrixMatch = {
@@ -126,6 +136,7 @@ export async function getNearestTravelTimes({
         travelMode: travelMode(transport),
         ...(transport === "driving" ? { routingPreference: "TRAFFIC_AWARE" } : {}),
         ...transitDepartureTime(transport),
+        ...transitPreferences(transport),
         languageCode: "ko",
         regionCode: "JP",
         units: "METRIC",
@@ -174,16 +185,18 @@ export async function optimizeDayWithGoogle({
   places,
   startLocation,
   transport,
+  preserveOrder = false,
 }: {
   places: TravelPlace[];
   startLocation: string;
   transport: TransportMode;
+  preserveOrder?: boolean;
 }): Promise<OptimizedDayRoute | null> {
   const key = apiKey();
   if (!key || places.length === 0) return null;
 
   const hasStartLocation = startLocation.trim().length > 0;
-  if (transport === "transit") {
+  if (isPublicTransportMode(transport)) {
     const routePairs = places.map((place, index) => {
       if (index === 0) {
         return hasStartLocation
@@ -207,6 +220,7 @@ export async function optimizeDayWithGoogle({
             destination: pair[1],
             travelMode: "TRANSIT",
             ...transitDepartureTime(transport),
+            ...transitPreferences(transport),
             languageCode: "ko",
             units: "METRIC",
           }),
@@ -244,7 +258,7 @@ export async function optimizeDayWithGoogle({
     : waypoint(places[0], transport);
   const destination = waypoint(places[places.length - 1], transport);
   const intermediatePlaces = hasStartLocation ? places.slice(0, -1) : places.slice(1, -1);
-  const canOptimize = intermediatePlaces.length > 1;
+  const canOptimize = !preserveOrder && intermediatePlaces.length > 1;
 
   const response = await fetch("https://routes.googleapis.com/directions/v2:computeRoutes", {
     method: "POST",

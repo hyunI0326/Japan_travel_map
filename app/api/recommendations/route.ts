@@ -1,9 +1,15 @@
+import { getSession } from "@/lib/auth";
 import { recommendNearbyPlaces } from "@/lib/travel-service";
 import { isTransportMode, isTravelStyle } from "@/lib/travel-types";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
+  const session = await getSession(request.headers);
+  if (!session?.user) {
+    return Response.json({ error: "UNAUTHORIZED" }, { status: 401 });
+  }
+
   const body = (await request.json().catch(() => null)) as {
     regionId?: unknown;
     style?: unknown;

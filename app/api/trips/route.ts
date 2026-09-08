@@ -1,3 +1,4 @@
+import { parseSharedPlan } from "@/lib/share-types";
 import { getSession } from "@/lib/auth";
 import {
   deleteCourse,
@@ -30,6 +31,8 @@ export async function POST(request: Request) {
   if (!user) return Response.json({ error: "UNAUTHORIZED" }, { status: 401 });
 
   const body = (await request.json().catch(() => null)) as {
+    id?: unknown;
+    plan?: unknown;
     regionId?: unknown;
     style?: unknown;
     dayCount?: unknown;
@@ -37,6 +40,32 @@ export async function POST(request: Request) {
     placeSnapshots?: unknown;
     duplicateId?: unknown;
   } | null;
+  if (body?.plan !== undefined) {
+    const plan = parseSharedPlan(body.plan);
+    if (!plan || JSON.stringify(body.plan).length > 500_000 ||
+        (body.id !== undefined && (typeof body.id !== "string" || !/^[A-Za-z0-9-]{1,80}$/.test(body.id)))) {
+      return Response.json({ error: "INVALID_REQUEST" }, { status: 400 });
+    }
+    const plannedIds = plan.itineraryPlan?.days.flatMap((day) => day.activities.flatMap((a) => a.kind === "place" ? [a.place.id] : []));
+    if (plannedIds && (plannedIds.length !== plan.places.length || new Set(plannedIds).size !== plannedIds.length || plannedIds.some((id) => !plan.places.some((p) => p.id === id)))) {
+      return Response.json({ error: "INVALID_PLAN" }, { status: 400 });
+    }
+    try {
+      const course = await saveCourse({
+        userId: user.id, regionId: plan.regionId, style: plan.style,
+        dayCount: plan.preferences.dayCount, placeIds: plan.places.map((p) => p.id),
+        externalPlaces: plan.places.filter((p) => p.source === "google"),
+        plan, existingId: body.id as string | undefined,
+      });
+      return Response.json({ course }, { status: body.id ? 200 : 201 });
+    } catch (error) {
+      if (error instanceof Error && ["TRIP_NOT_FOUND", "REGION_NOT_FOUND", "PLACE_NOT_FOUND"].includes(error.message)) {
+        return Response.json({ error: error.message }, { status: 404 });
+      }
+      throw error;
+    }
+  }
+  if (body?.id !== undefined) return Response.json({ error: "INVALID_REQUEST" }, { status: 400 });
   if (body && typeof body.duplicateId === "string") {
     if (!/^[A-Za-z0-9-]{1,80}$/.test(body.duplicateId)) {
       return Response.json({ error: "INVALID_REQUEST" }, { status: 400 });
@@ -52,7 +81,7 @@ export async function POST(request: Request) {
     body.placeIds !== undefined &&
     (!Array.isArray(body.placeIds) ||
       body.placeIds.length === 0 ||
-      body.placeIds.length > 9 ||
+      body.placeIds.length > 21 ||
       body.placeIds.some((id) => typeof id !== "string"))
   ) {
     return Response.json({ error: "INVALID_REQUEST" }, { status: 400 });
@@ -60,7 +89,7 @@ export async function POST(request: Request) {
   if (
     body.placeSnapshots !== undefined &&
     (!Array.isArray(body.placeSnapshots) ||
-      body.placeSnapshots.length > 9 ||
+      body.placeSnapshots.length > 21 ||
       body.placeSnapshots.some((place) => !isGooglePlaceSnapshot(place)))
   ) {
     return Response.json({ error: "INVALID_REQUEST" }, { status: 400 });

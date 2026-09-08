@@ -1,10 +1,9 @@
 import { optimizeDayWithGoogle, type OptimizedDayRoute } from "@/lib/google-routes";
+import { buildPlannedDay, visitDuration } from "@/lib/itinerary-schedule";
 import {
   calculateDistanceKm,
   type ItineraryPlan,
   type PlanPreferences,
-  type PlannedActivity,
-  type PlannedDay,
   type TransportMode,
   type TravelPlace,
 } from "@/lib/travel-types";
@@ -15,19 +14,6 @@ function addDays(date: string, offset: number) {
   if (Number.isNaN(base.getTime())) return "";
   base.setUTCDate(base.getUTCDate() + offset);
   return base.toISOString().slice(0, 10);
-}
-
-function timeLabel(minutes: number) {
-  const safeMinutes = Math.max(0, minutes);
-  const hour = Math.floor(safeMinutes / 60) % 24;
-  const minute = Math.round(safeMinutes % 60);
-  return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
-}
-
-function visitDuration(place: TravelPlace, preferences: PlanPreferences) {
-  const paceFactor = preferences.pace === "relaxed" ? 1.15 : preferences.pace === "packed" ? 0.85 : 1;
-  const companionFactor = preferences.companion === "parents" ? 1.12 : preferences.companion === "family" ? 1.08 : 1;
-  return Math.max(30, Math.round((place.durationMinutes * paceFactor * companionFactor) / 5) * 5);
 }
 
 function estimatedTravelMinutes(distanceKm: number, transport: TransportMode) {
@@ -69,17 +55,39 @@ function nearestNeighbor(places: TravelPlace[], lockedPlaceIds: Set<string>) {
   return result.filter((place): place is TravelPlace => Boolean(place));
 }
 
-function distributeByDay(places: TravelPlace[], dayCount: number) {
-  const safeDayCount = Math.max(1, Math.min(dayCount, places.length));
-  const baseCount = Math.floor(places.length / safeDayCount);
-  let extra = places.length % safeDayCount;
-  let cursor = 0;
-  return Array.from({ length: safeDayCount }, () => {
-    const count = baseCount + (extra-- > 0 ? 1 : 0);
-    const dayPlaces = places.slice(cursor, cursor + count);
-    cursor += count;
-    return dayPlaces;
-  });
+function distributeByDay(places: TravelPlace[], preferences: PlanPreferences) {
+  const groups: TravelPlace[][] = Array.from({ length: preferences.dayCount }, () => []);
+  const capacity = preferences.pace === "relaxed" ? 330 : preferences.pace === "packed" ? 570 : 450;
+  // Explicit day choices take precedence. Fill unassigned places by nearby travel
+  // and visit workload; do not spread a short afternoon over every requested day.
+  for (const place of places) {
+    const assignment = preferences.placeSchedules?.[place.id];
+    if (assignment) groups[assignment.dayNumber - 1].push(place);
+  }
+  let index = 0;
+  for (const place of places) {
+    if (preferences.placeSchedules?.[place.id]) continue;
+    while (index < groups.length - 1) {
+      const group = groups[index];
+      const previous = group.at(-1);
+      const distance = previous ? calculateDistanceKm(previous, place) : 0;
+      const workload = group.reduce((sum, item, i) => sum + visitDuration(item, preferences) +
+        (i > 0 ? estimatedTravelMinutes(calculateDistanceKm(group[i - 1], item), preferences.transport) : 0), 0);
+      const firstDayCapacity = index === 0 && preferences.firstDayStartTime
+        ? Math.min(capacity, Math.max(60, 21 * 60 - Number(preferences.firstDayStartTime.slice(0, 2)) * 60 - Number(preferences.firstDayStartTime.slice(3))))
+        : capacity;
+      if (group.length && (workload + visitDuration(place, preferences) + estimatedTravelMinutes(distance, preferences.transport) > firstDayCapacity || distance > 12)) index += 1;
+      else break;
+    }
+    groups[index].push(place);
+  }
+  return groups;
+}
+
+function orderForVisitTimes(places: TravelPlace[], preferences: PlanPreferences, locked: Set<string>) {
+  const preferred = (place: TravelPlace) => preferences.placeSchedules?.[place.id]?.time || place.suggestedTime;
+  const available = places.filter(place => !locked.has(place.id)).sort((a, b) => preferred(a).localeCompare(preferred(b)));
+  return places.map(place => locked.has(place.id) ? place : available.shift()!);
 }
 
 function fallbackRoute(places: TravelPlace[], transport: TransportMode): OptimizedDayRoute {
@@ -96,67 +104,6 @@ function fallbackRoute(places: TravelPlace[], transport: TransportMode): Optimiz
   };
 }
 
-function buildDay(
-  dayNumber: number,
-  route: OptimizedDayRoute,
-  preferences: PlanPreferences,
-): PlannedDay {
-  let cursor = preferences.pace === "packed" ? 8 * 60 + 30 : preferences.pace === "relaxed" ? 9 * 60 + 30 : 9 * 60;
-  let mealAdded = false;
-  const activities: PlannedActivity[] = [];
-
-  route.places.forEach((place, index) => {
-    const travelMinutes = route.legMinutes[index] ?? 0;
-    cursor += travelMinutes;
-    if (preferences.includeMeals && !mealAdded && cursor >= 11 * 60 + 45) {
-      const mealStart = cursor;
-      cursor += preferences.budget === "premium" ? 75 : 60;
-      activities.push({
-        kind: "meal",
-        id: `meal-${dayNumber}`,
-        label: "점심 식사",
-        scheduledTime: timeLabel(mealStart),
-        endTime: timeLabel(cursor),
-        nearPlaceName: route.places[Math.max(0, index - 1)]?.name ?? place.name,
-      });
-      mealAdded = true;
-    }
-
-    const start = cursor;
-    cursor += visitDuration(place, preferences);
-    activities.push({
-      kind: "place",
-      place,
-      scheduledTime: timeLabel(start),
-      endTime: timeLabel(cursor),
-      travelMinutesFromPrevious: travelMinutes,
-      distanceKmFromPrevious: route.legDistancesKm[index] ?? 0,
-    });
-
-    if (preferences.includeMeals && !mealAdded && cursor >= 12 * 60) {
-      const mealStart = cursor;
-      cursor += preferences.budget === "premium" ? 75 : 60;
-      activities.push({
-        kind: "meal",
-        id: `meal-${dayNumber}`,
-        label: "점심 식사",
-        scheduledTime: timeLabel(mealStart),
-        endTime: timeLabel(cursor),
-        nearPlaceName: place.name,
-      });
-      mealAdded = true;
-    }
-  });
-
-  return {
-    dayNumber,
-    date: addDays(preferences.startDate, dayNumber - 1),
-    activities,
-    totalTravelMinutes: route.totalMinutes,
-    totalDistanceKm: route.totalDistanceKm,
-  };
-}
-
 export async function createItineraryPlan({
   places,
   preferences,
@@ -168,24 +115,26 @@ export async function createItineraryPlan({
 }): Promise<ItineraryPlan> {
   const locked = new Set(lockedPlaceIds);
   const nearestOrder = nearestNeighbor(places, locked);
-  const dayGroups = distributeByDay(nearestOrder, preferences.dayCount);
+  const dayGroups = distributeByDay(nearestOrder, preferences);
   let usedGoogle = false;
   let googleUnavailable = false;
 
   const routes = await Promise.all(
-    dayGroups.map(async (dayPlaces) => {
-      if (locked.size > 0 || dayPlaces.length < 2) {
-        return fallbackRoute(dayPlaces, preferences.transport);
+    dayGroups.map(async (group) => {
+      const dayPlaces = orderForVisitTimes(group, preferences, locked);
+      if (dayPlaces.length === 0 || (dayPlaces.length === 1 && !preferences.startLocation)) {
+        return { ...fallbackRoute(dayPlaces, preferences.transport), provider: "estimate" as const };
       }
       try {
         const googleRoute = await optimizeDayWithGoogle({
           places: dayPlaces,
           startLocation: preferences.startLocation,
           transport: preferences.transport,
+          preserveOrder: true,
         });
         if (googleRoute) {
           usedGoogle = true;
-          return googleRoute;
+          return { ...googleRoute, provider: "google" as const };
         }
       } catch (error) {
         googleUnavailable = true;
@@ -194,7 +143,7 @@ export async function createItineraryPlan({
           error instanceof Error ? error.message : "GOOGLE_ROUTES_UNKNOWN",
         );
       }
-      return fallbackRoute(dayPlaces, preferences.transport);
+      return { ...fallbackRoute(dayPlaces, preferences.transport), provider: "estimate" as const };
     }),
   );
 
@@ -206,9 +155,14 @@ export async function createItineraryPlan({
     warnings.push("고정한 장소의 순서는 유지하고 나머지 장소만 가까운 순서로 정리했어요.");
   }
 
-  return {
-    days: routes.map((route, index) => buildDay(index + 1, route, preferences)),
-    provider: usedGoogle ? "google" : "estimate",
-    warnings,
-  };
+  const days = routes.map((route, index) => buildPlannedDay(index + 1, addDays(preferences.startDate, index), route, preferences));
+  const freeDays = days.filter(day => day.activities.length === 0).length;
+  if (freeDays) warnings.push(`가까운 장소를 묶어 ${days.length - freeDays}일에 배치했어요. 남은 ${freeDays}일은 자유 일정이에요. 장소를 추가하거나 여행 일수를 줄일 수 있어요.`);
+  const estimated = routes.some(route => route.places.length > 0 && route.provider === "estimate");
+  if (estimated && !googleUnavailable) warnings.push("일부 이동시간은 직선거리로 추정했어요. 출발 전 지도에서 교통편을 확인해 주세요.");
+  if (preferences.startLocation && estimated) warnings.push("추정 동선에는 숙소에서 첫 장소까지의 이동시간이 포함되지 않아요.");
+  if (preferences.startLocation) warnings.push("마지막 장소에서 숙소로 돌아가는 시간은 별도로 확보해 주세요.");
+  const conflicts = days.flatMap(day => day.activities).filter(activity => activity.kind === "place" && activity.scheduleNote);
+  if (conflicts.length) warnings.push(`${conflicts.length}개 장소의 예약·이동·종료 시간 안내를 확인해 주세요.`);
+  return { days, provider: usedGoogle ? (estimated ? "mixed" : "google") : "estimate", warnings };
 }

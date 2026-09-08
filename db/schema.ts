@@ -243,3 +243,22 @@ export const analyticsDaily = sqliteTable(
     index("idx_analytics_daily_date").on(table.date),
   ],
 );
+
+
+export const itineraryPlans = sqliteTable("itineraryPlan", {
+  itineraryId: text("itineraryId").primaryKey().references(() => itineraries.id, { onDelete: "cascade" }),
+  payload: text("payload").notNull(),
+});
+export const tripDiscussions = sqliteTable("tripDiscussion", {
+  id: text("id").primaryKey(),
+  slug: text("slug").notNull().references(() => sharedTrips.slug, { onDelete: "cascade" }),
+  userId: text("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
+  author: text("author").notNull(),
+  kind: text("kind").notNull(),
+  body: text("body").notNull(),
+  createdAt: createdAt(),
+}, (table) => [index("trip_discussion_slug").on(table.slug, table.createdAt)]);
+export const tripVotes = sqliteTable("tripVote", {
+  discussionId: text("discussionId").notNull().references(() => tripDiscussions.id, { onDelete: "cascade" }),
+  userId: text("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
+}, (table) => [uniqueIndex("trip_vote_unique").on(table.discussionId, table.userId)]);

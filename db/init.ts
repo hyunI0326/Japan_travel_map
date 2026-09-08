@@ -123,6 +123,28 @@ const SCHEMA_STATEMENTS = [
     FOREIGN KEY ("userId") REFERENCES "user"("id") ON DELETE CASCADE,
     FOREIGN KEY ("lastRegionId") REFERENCES "region"("id") ON DELETE SET NULL
   )`,
+  `CREATE TABLE IF NOT EXISTS "sharedTrip" (
+    "slug" TEXT PRIMARY KEY NOT NULL, "regionId" TEXT NOT NULL REFERENCES "region"("id"),
+    "title" TEXT NOT NULL, "payload" TEXT NOT NULL, "placeCount" INTEGER NOT NULL,
+    "dayCount" INTEGER NOT NULL, "createdAt" INTEGER NOT NULL
+  )`,
+  `CREATE TABLE IF NOT EXISTS "itineraryPlan" (
+    "itineraryId" TEXT PRIMARY KEY NOT NULL REFERENCES "itinerary"("id") ON DELETE CASCADE,
+    "payload" TEXT NOT NULL
+  )`,
+  `CREATE TABLE IF NOT EXISTS "tripDiscussion" (
+    "id" TEXT PRIMARY KEY NOT NULL,
+    "slug" TEXT NOT NULL REFERENCES "sharedTrip"("slug") ON DELETE CASCADE,
+    "userId" TEXT NOT NULL REFERENCES "user"("id") ON DELETE CASCADE,
+    "author" TEXT NOT NULL, "kind" TEXT NOT NULL, "body" TEXT NOT NULL,
+    "createdAt" INTEGER DEFAULT (unixepoch() * 1000) NOT NULL
+  )`,
+  `CREATE INDEX IF NOT EXISTS "trip_discussion_slug" ON "tripDiscussion" ("slug", "createdAt")`,
+  `CREATE TABLE IF NOT EXISTS "tripVote" (
+    "discussionId" TEXT NOT NULL REFERENCES "tripDiscussion"("id") ON DELETE CASCADE,
+    "userId" TEXT NOT NULL REFERENCES "user"("id") ON DELETE CASCADE
+  )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS "trip_vote_unique" ON "tripVote" ("discussionId", "userId")`,
 ];
 
 let initialization: Promise<void> | null = null;

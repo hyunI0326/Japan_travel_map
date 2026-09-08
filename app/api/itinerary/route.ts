@@ -14,7 +14,7 @@ export async function POST(request: Request) {
     !body ||
     !Array.isArray(body.places) ||
     body.places.length === 0 ||
-    body.places.length > 9 ||
+    body.places.length > 21 ||
     body.places.some((place) => !isTravelPlaceSnapshot(place)) ||
     !isPlanPreferences(body.preferences) ||
     !Array.isArray(body.lockedPlaceIds) ||
@@ -26,7 +26,7 @@ export async function POST(request: Request) {
   const placeIds = new Set(body.places.map((place) => place.id));
   const lockedPlaceIds = [...new Set(body.lockedPlaceIds)]
     .filter((id) => placeIds.has(id))
-    .slice(0, 9);
+    .slice(0, 21);
   const plan = await createItineraryPlan({
     places: body.places,
     preferences: body.preferences,

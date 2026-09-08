@@ -50,6 +50,8 @@ const otherDefaults: Record<TravelBudget, number> = {
 const transportDefaults: Record<TransportMode, Record<TravelBudget, number>> = {
   walking: { value: 800, standard: 1_200, premium: 2_000 },
   transit: { value: 1_200, standard: 1_800, premium: 3_000 },
+  subway: { value: 1_200, standard: 1_800, premium: 3_000 },
+  bus: { value: 1_200, standard: 1_800, premium: 3_000 },
   driving: { value: 3_000, standard: 5_000, premium: 8_000 },
 };
 

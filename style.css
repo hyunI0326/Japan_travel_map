@@ -15,6 +15,40 @@ button,a { font:inherit; }
 button:focus-visible,a:focus-visible { outline:3px solid rgba(223,81,64,.3); outline-offset:3px; }
 
 .app-shell { min-height:100vh; display:grid; grid-template-columns:minmax(460px,43%) 1fr; grid-template-rows:68px calc(100vh - 68px); }
+
+.landing-intro { position:relative; z-index:900; height:165dvh; background:#07172d; }
+.landing-stage { position:sticky; top:0; display:grid; height:100dvh; overflow:hidden; place-items:center; background:#07172d; color:#f8fbff; }
+.landing-grid { position:absolute; inset:10%; border:1px solid #93c5fd; border-radius:50%; opacity:.22; box-shadow:inset 0 0 0 3.5rem #07172d,inset 0 0 0 calc(3.5rem + 1px) #93c5fd; transform:rotate(45deg); }
+.landing-copy { position:absolute; z-index:1; top:clamp(5.5rem,11vh,8rem); left:clamp(1.5rem,5vw,5rem); max-width:38rem; }
+.landing-copy p,.landing-copy>span { margin:0; color:#bfdbfe; font-size:.75rem; font-weight:800; text-wrap:pretty; }
+.landing-copy h1 { margin:1rem 0 1.25rem; color:#fff; font-family:Georgia,"Nanum Myeongjo",serif; font-size:clamp(3rem,7vw,7rem); font-weight:500; line-height:.96; text-wrap:balance; }
+.landing-copy>span { color:#93c5fd; }
+.landing-skip { position:absolute; z-index:2; right:clamp(1.5rem,5vw,5rem); bottom:max(2rem,env(safe-area-inset-bottom)); display:inline-flex; align-items:center; gap:.75rem; min-height:2.75rem; padding:0 1rem; border:1px solid rgba(191,219,254,.45); border-radius:.5rem; color:#eff6ff; background:#0f2850; font-size:.875rem; font-weight:700; text-decoration:none; }
+.landing-skip:hover { background:#173866; }
+.landing-skip span { font-size:1.125rem; }
+.journey-object { position:relative; width:min(54vw,40rem); height:min(54vw,40rem); display:grid; place-items:center; transform-style:preserve-3d; }
+.journey-object__core { position:relative; z-index:2; display:grid; width:46%; aspect-ratio:1; place-items:center; border:1px solid #dbeafe; border-radius:1.5rem; background:#2563eb; box-shadow:1.25rem 1.25rem 0 #0f3d91,2.5rem 2.5rem 0 rgba(15,61,145,.35),0 1.5rem 3rem rgba(0,0,0,.28); transform:rotateX(56deg) rotateZ(-33deg) translateZ(2rem); }
+.journey-object__core span { color:#fff; font-family:Georgia,"Nanum Myeongjo",serif; font-size:clamp(3rem,8vw,7rem); font-weight:700; transform:rotateZ(33deg) rotateX(-56deg); }
+.journey-object__ring { position:absolute; width:88%; aspect-ratio:1; border:1px solid rgba(191,219,254,.8); border-radius:50%; }
+.journey-object__ring--back { transform:rotateX(66deg) rotateZ(18deg) translateZ(-1rem); }
+.journey-object__ring--front { width:70%; border-color:#60a5fa; transform:rotateX(66deg) rotateZ(-50deg) translateZ(3rem); }
+.journey-object__shadow { position:absolute; bottom:8%; width:58%; height:9%; border-radius:50%; background:rgba(0,0,0,.32); filter:blur(14px); transform:rotateX(64deg); }
+
+@supports (animation-timeline:scroll()) {
+  .landing-stage,.landing-copy,.landing-grid,.landing-skip,.journey-object { animation-timeline:scroll(root); animation-range:0 115dvh; animation-fill-mode:both; }
+  .landing-stage { animation-name:landing-stage-leave; }
+  .landing-copy { animation-name:landing-copy-leave; }
+  .landing-grid { animation-name:landing-grid-leave; }
+  .landing-skip { animation-name:landing-skip-leave; }
+  .journey-object { animation-name:journey-object-scroll; }
+}
+
+@keyframes landing-stage-leave { 0%,65% { opacity:1; } 100% { opacity:0; } }
+@keyframes landing-copy-leave { 0%,42% { opacity:1; transform:translateY(0); } 100% { opacity:0; transform:translateY(-3rem); } }
+@keyframes landing-grid-leave { 0% { opacity:.22; transform:scale(1); } 100% { opacity:0; transform:scale(1.12); } }
+@keyframes landing-skip-leave { 0%,28% { opacity:1; transform:translateY(0); } 100% { opacity:0; transform:translateY(1.5rem); } }
+@keyframes journey-object-scroll { 0% { opacity:1; transform:rotateZ(0) scale(1); } 100% { opacity:0; transform:rotateZ(20deg) scale(.72); } }
+
 .topbar { grid-column:1/-1; z-index:800; display:flex; align-items:center; justify-content:space-between; padding:0 clamp(22px,3vw,48px); border-bottom:1px solid var(--line); background:rgba(255,255,255,.92); backdrop-filter:blur(18px); }
 .brand { display:flex; align-items:center; gap:11px; color:var(--ink); text-decoration:none; font-size:12px; font-weight:900; letter-spacing:.16em; }
 .brand-mark { width:32px; height:32px; display:grid; place-items:center; border-radius:10px; background:var(--accent); color:#fff; font-family:Georgia,serif; font-size:18px; transform:rotate(-4deg); }
@@ -123,6 +157,9 @@ h1 { margin:15px 0 18px; font-family:Georgia,"Nanum Myeongjo",serif; font-size:c
 .open-map { z-index:750; position:absolute; right:24px; bottom:24px; padding:11px 15px; border-radius:999px; color:#fff; background:var(--green); text-decoration:none; font-size:10px; font-weight:800; box-shadow:0 8px 24px rgba(31,46,38,.16); }
 
 @media(max-width:900px){
+  .landing-intro{height:135dvh}
+  .landing-copy{top:max(6.5rem,env(safe-area-inset-top))}
+  .journey-object{width:min(78vw,28rem);height:min(78vw,28rem)}
   .app-shell{grid-template-columns:1fr;grid-template-rows:64px auto 62vh}
   .topbar{padding:0 20px}
   nav{gap:12px}
@@ -135,6 +172,11 @@ h1 { margin:15px 0 18px; font-family:Georgia,"Nanum Myeongjo",serif; font-size:c
 }
 
 @media(max-width:520px){
+  .landing-intro{height:125dvh}
+  .landing-copy{right:1.5rem;top:max(6rem,env(safe-area-inset-top))}
+  .landing-copy h1{font-size:clamp(2.8rem,15vw,4.25rem);line-height:1}
+  .landing-skip{right:1rem;bottom:max(1.25rem,env(safe-area-inset-bottom))}
+  .journey-object{width:84vw;height:84vw}
   .brand span:last-child{display:none}
   .route-panel{padding-top:34px}
   h1{font-size:41px}

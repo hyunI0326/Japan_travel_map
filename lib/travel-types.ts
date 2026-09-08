@@ -11,8 +11,15 @@ export type TravelPace = (typeof travelPaces)[number];
 export const travelBudgets = ["value", "standard", "premium"] as const;
 export type TravelBudget = (typeof travelBudgets)[number];
 
-export const transportModes = ["walking", "transit", "driving"] as const;
+export const transportModes = ["walking", "transit", "subway", "bus", "driving"] as const;
 export type TransportMode = (typeof transportModes)[number];
+
+export const MAX_TRIP_DAYS = 7;
+export const MAX_TRIP_PLACES = 21;
+export type PlaceSchedule = { dayNumber: number; time?: string };
+export function isTime(value: unknown): value is string {
+  return typeof value === "string" && /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
+}
 
 export type PlanPreferences = {
   startDate: string;
@@ -23,6 +30,9 @@ export type PlanPreferences = {
   budget: TravelBudget;
   transport: TransportMode;
   includeMeals: boolean;
+  firstDayStartTime?: string;
+  lastDayEndTime?: string;
+  placeSchedules?: Record<string, PlaceSchedule>;
 };
 
 export type TravelRegion = {
@@ -100,6 +110,10 @@ export type PlannedPlaceActivity = {
   travelMinutesFromPrevious: number;
   distanceKmFromPrevious: number;
   openingNote?: string;
+  openingStatus?: "open" | "closed" | "unknown";
+  scheduleNote?: string;
+  routeProvider?: "google" | "estimate";
+  timeLocked?: boolean;
 };
 
 export type PlannedMealActivity = {
@@ -119,11 +133,12 @@ export type PlannedDay = {
   activities: PlannedActivity[];
   totalTravelMinutes: number;
   totalDistanceKm: number;
+  routeProvider?: "google" | "estimate";
 };
 
 export type ItineraryPlan = {
   days: PlannedDay[];
-  provider: "google" | "estimate";
+  provider: "google" | "estimate" | "mixed";
   warnings: string[];
 };
 
@@ -149,6 +164,7 @@ export type TravelCourse = {
   region: TravelRegion;
   days: CourseDay[];
   savedAt?: number;
+  savedPlan?: import("./share-types").SharedPlan;
 };
 
 export const styleLabels: Record<TravelStyle, string> = {
@@ -180,6 +196,8 @@ export const budgetLabels: Record<TravelBudget, string> = {
 export const transportLabels: Record<TransportMode, string> = {
   walking: "도보 중심",
   transit: "대중교통",
+  subway: "지하철",
+  bus: "버스",
   driving: "자동차",
 };
 
@@ -189,6 +207,10 @@ export function isTravelStyle(value: unknown): value is TravelStyle {
 
 export function isTransportMode(value: unknown): value is TransportMode {
   return typeof value === "string" && transportModes.includes(value as TransportMode);
+}
+
+export function isPublicTransportMode(mode: TransportMode) {
+  return mode === "transit" || mode === "subway" || mode === "bus";
 }
 
 export function isGooglePlaceSnapshot(value: unknown): value is TravelPlace {
@@ -266,20 +288,34 @@ export function isPlanPreferences(value: unknown): value is PlanPreferences {
     typeof preferences.dayCount === "number" &&
     Number.isInteger(preferences.dayCount) &&
     preferences.dayCount >= 1 &&
-    preferences.dayCount <= 3 &&
+    preferences.dayCount <= MAX_TRIP_DAYS &&
     typeof preferences.startLocation === "string" &&
     preferences.startLocation.length <= 180 &&
     companionTypes.includes(preferences.companion as CompanionType) &&
     travelPaces.includes(preferences.pace as TravelPace) &&
     travelBudgets.includes(preferences.budget as TravelBudget) &&
     transportModes.includes(preferences.transport as TransportMode) &&
-    typeof preferences.includeMeals === "boolean"
+    typeof preferences.includeMeals === "boolean" &&
+    (preferences.firstDayStartTime === undefined || preferences.firstDayStartTime === "" || isTime(preferences.firstDayStartTime)) &&
+    (preferences.lastDayEndTime === undefined || preferences.lastDayEndTime === "" || isTime(preferences.lastDayEndTime)) &&
+    (preferences.placeSchedules === undefined || (
+      preferences.placeSchedules !== null && typeof preferences.placeSchedules === "object" &&
+      !Array.isArray(preferences.placeSchedules) &&
+      Object.keys(preferences.placeSchedules).length <= MAX_TRIP_PLACES &&
+      Object.entries(preferences.placeSchedules).every(([id, entry]) => {
+        if (!/^[A-Za-z0-9:_-]{1,240}$/.test(id) || !entry || typeof entry !== "object") return false;
+        const schedule = entry as Record<string, unknown>;
+        return typeof schedule.dayNumber === "number" && Number.isInteger(schedule.dayNumber) &&
+          schedule.dayNumber >= 1 && schedule.dayNumber <= (preferences.dayCount as number) &&
+          (schedule.time === undefined || isTime(schedule.time));
+      })
+    ))
   );
 }
 
 export function normalizeDayCount(value: unknown) {
   const dayCount = Number(value);
-  return Number.isInteger(dayCount) && dayCount >= 1 && dayCount <= 3
+  return Number.isInteger(dayCount) && dayCount >= 1 && dayCount <= MAX_TRIP_DAYS
     ? dayCount
     : 3;
 }
@@ -319,10 +355,10 @@ export function buildCustomCourse({
   style: TravelStyle;
   dayCount?: number;
 }): TravelCourse {
-  const selectedPlaces = places.slice(0, 9);
+  const selectedPlaces = places.slice(0, MAX_TRIP_PLACES);
   const dayCount = Math.max(
     1,
-    Math.min(requestedDayCount ?? Math.ceil(selectedPlaces.length / 3), selectedPlaces.length || 1),
+    Math.min(requestedDayCount ?? Math.ceil(selectedPlaces.length / 3), MAX_TRIP_DAYS),
   );
   const baseCount = Math.floor(selectedPlaces.length / dayCount);
   let extra = selectedPlaces.length % dayCount;

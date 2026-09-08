@@ -2,10 +2,11 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import PolicyLinks from "../../policy-links";
 import SiteLink from "../../site-link";
+import TripDiscussion from "../../trip-discussion";
 import TripActions from "./trip-actions";
 import { calculateBudgetSummary } from "@/lib/budget";
 import { getSharedTrip } from "@/lib/shared-trips";
-import { styleLabels, transportLabels } from "@/lib/travel-types";
+import { isPublicTransportMode, styleLabels, transportLabels } from "@/lib/travel-types";
 
 export const dynamic = "force-dynamic";
 
@@ -42,7 +43,7 @@ function directionsUrl(trip: NonNullable<Awaited<ReturnType<typeof getSharedTrip
     api: "1",
     origin: trip.plan.preferences.startLocation.trim() || coordinate(places[0]),
     destination: coordinate(places[places.length - 1]),
-    travelmode: trip.plan.preferences.transport === "transit"
+    travelmode: isPublicTransportMode(trip.plan.preferences.transport)
       ? "transit"
       : trip.plan.preferences.transport === "driving" ? "driving" : "walking",
   });
@@ -104,7 +105,7 @@ export default async function SharedTripPage({ params }: PageProps) {
             <div className="shared-days">
               {plan.days.map((day) => (
                 <article key={day.dayNumber}>
-                  <header><div><span>DAY {String(day.dayNumber).padStart(2, "0")}</span><strong>{day.date || `${day.dayNumber}일차`}</strong></div><small>이동 {formatMinutes(day.totalTravelMinutes)} · {day.totalDistanceKm.toFixed(1)}km</small></header>
+                  <header><div><span>DAY {String(day.dayNumber).padStart(2, "0")}</span><strong>{day.date || `${day.dayNumber}일차`}</strong></div><small>{transportLabels[trip.plan.preferences.transport]} · 이동 {formatMinutes(day.totalTravelMinutes)} · {day.totalDistanceKm.toFixed(1)}km</small></header>
                   <ol>
                     {day.activities.map((activity) => (
                       <li key={activity.kind === "place" ? activity.place.id : activity.id} className={activity.kind === "meal" ? "is-meal" : ""}>
@@ -112,7 +113,7 @@ export default async function SharedTripPage({ params }: PageProps) {
                         <i aria-hidden="true" />
                         <div>
                           <strong>{activity.kind === "place" ? activity.place.name : activity.label}</strong>
-                          <small>{activity.kind === "place" ? `${activity.place.category} · ${activity.endTime}까지` : `${activity.nearPlaceName} 주변`}</small>
+                          <small>{activity.kind === "place" ? `${activity.travelMinutesFromPrevious > 0 ? `${transportLabels[trip.plan.preferences.transport]} ${formatMinutes(activity.travelMinutesFromPrevious)} · ` : ""}${activity.place.category} · ${activity.endTime}까지` : `${activity.nearPlaceName} 주변`}</small>
                           {activity.kind === "place" && activity.openingNote ? <em>{activity.openingNote}</em> : null}
                         </div>
                       </li>
@@ -143,6 +144,8 @@ export default async function SharedTripPage({ params }: PageProps) {
             <small>항공권을 제외한 계획용 추정치이며 실제 비용과 환율은 달라질 수 있습니다.</small>
           </section>
         ) : null}
+
+        <TripDiscussion slug={slug} />
 
         <a className="shared-directions no-print" href={directionsUrl(trip)} target="_blank" rel="noreferrer">Google Maps에서 전체 동선 열기 <span aria-hidden="true">↗</span></a>
         <p className="shared-disclaimer">운영시간, 요금과 교통편은 변동될 수 있으니 출발 전에 공식 정보를 다시 확인해 주세요.</p>

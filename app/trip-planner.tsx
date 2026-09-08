@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "./auth-context";
+import TripCompanion from "./trip-companion";
+import { emptyJournal, publicPlan, type TripJournal } from "@/lib/trip-journal";
 import BudgetCalculator from "./budget-calculator";
 import PolicyLinks from "./policy-links";
 import SiteLink from "./site-link";
@@ -13,12 +15,16 @@ import {
   normalizeBudgetEstimate,
   type BudgetEstimate,
 } from "@/lib/budget";
+import { adjustPlanForOpeningHours, openingStatus } from "@/lib/itinerary-schedule";
 import { parseSharedPlan, type SharedPlan } from "@/lib/share-types";
 import {
+  MAX_TRIP_DAYS,
+  MAX_TRIP_PLACES,
   buildCustomCourse,
   budgetLabels,
   companionLabels,
   companionTypes,
+  isPublicTransportMode,
   paceLabels,
   styleLabels,
   transportLabels,
@@ -69,91 +75,6 @@ function decodeSharedPlan(value: string): SharedPlan | null {
   } catch {
     return null;
   }
-}
-
-function minutesFromTime(value: string) {
-  const [hour, minute] = value.split(":").map(Number);
-  return hour * 60 + minute;
-}
-
-function timeFromMinutes(value: number) {
-  const safe = Math.max(0, Math.round(value));
-  return `${String(Math.floor(safe / 60) % 24).padStart(2, "0")}:${String(safe % 60).padStart(2, "0")}`;
-}
-
-function japanWeekday(date: string) {
-  return new Date(`${date}T12:00:00+09:00`).getUTCDay();
-}
-
-function openingStatus(details: PlaceDetails | undefined, date: string, time: string) {
-  if (!details || !date || details.periods.length === 0) return "unknown" as const;
-  const target = japanWeekday(date) * 24 * 60 + minutesFromTime(time);
-  const week = 7 * 24 * 60;
-  const open = details.periods.some((period) => {
-    const start = period.open.day * 24 * 60 + period.open.hour * 60 + period.open.minute;
-    if (!period.close) return true;
-    let end = period.close.day * 24 * 60 + period.close.hour * 60 + period.close.minute;
-    if (end <= start) end += week;
-    return (target >= start && target < end) || target + week < end && target + week >= start;
-  });
-  return open ? "open" as const : "closed" as const;
-}
-
-function nextOpeningMinutes(details: PlaceDetails, date: string, currentMinutes: number) {
-  const weekday = japanWeekday(date);
-  const candidates = details.periods
-    .filter((period) => period.open.day === weekday)
-    .map((period) => period.open.hour * 60 + period.open.minute)
-    .filter((minutes) => minutes >= currentMinutes)
-    .sort((a, b) => a - b);
-  return candidates[0] ?? null;
-}
-
-function adjustPlanForOpeningHours(
-  plan: ItineraryPlan,
-  detailsById: Record<string, PlaceDetails>,
-): ItineraryPlan {
-  let adjustedCount = 0;
-  let conflictCount = 0;
-  const days = plan.days.map((day) => {
-    let shift = 0;
-    const activities = day.activities.map((activity) => {
-      const scheduled = minutesFromTime(activity.scheduledTime) + shift;
-      const end = minutesFromTime(activity.endTime) + shift;
-      if (activity.kind === "meal") {
-        return { ...activity, scheduledTime: timeFromMinutes(scheduled), endTime: timeFromMinutes(end) };
-      }
-      const details = detailsById[activity.place.id];
-      const status = openingStatus(details, day.date, timeFromMinutes(scheduled));
-      if (status !== "closed" || !details) {
-        return { ...activity, scheduledTime: timeFromMinutes(scheduled), endTime: timeFromMinutes(end) };
-      }
-      const nextOpening = nextOpeningMinutes(details, day.date, scheduled);
-      if (nextOpening !== null && nextOpening - scheduled <= 240) {
-        const delay = nextOpening - scheduled;
-        shift += delay;
-        adjustedCount += 1;
-        return {
-          ...activity,
-          scheduledTime: timeFromMinutes(scheduled + delay),
-          endTime: timeFromMinutes(end + delay),
-          openingNote: `영업 시작에 맞춰 ${timeFromMinutes(scheduled + delay)}로 자동 조정했어요.`,
-        };
-      }
-      conflictCount += 1;
-      return {
-        ...activity,
-        scheduledTime: timeFromMinutes(scheduled),
-        endTime: timeFromMinutes(end),
-        openingNote: "이 시간에는 휴무일 수 있어 영업시간 확인이 필요해요.",
-      };
-    });
-    return { ...day, activities };
-  });
-  const warnings = [...plan.warnings];
-  if (adjustedCount > 0) warnings.push(`${adjustedCount}개 장소를 영업 시작 시간에 맞춰 자동 조정했어요.`);
-  if (conflictCount > 0) warnings.push(`${conflictCount}개 장소는 영업시간을 다시 확인해 주세요.`);
-  return { ...plan, days, warnings };
 }
 
 function formatDuration(minutes: number) {
@@ -248,6 +169,10 @@ export default function TripPlanner({
   googleMapsApiKey: string;
 }) {
   const { user } = useAuth();
+  const [journal, setJournal] = useState<TripJournal>(emptyJournal);
+  const [activeSavedId, setActiveSavedId] = useState("");
+  const [sharePath, setSharePath] = useState("");
+  const [draftError, setDraftError] = useState(false);
   const [regionId, setRegionId] = useState(initialCatalog.region.id);
   const [catalog, setCatalog] = useState(initialCatalog);
   const [hasChosenRegion, setHasChosenRegion] = useState(false);
@@ -289,6 +214,7 @@ export default function TripPlanner({
   const [editingSavedId, setEditingSavedId] = useState("");
   const [savedTitleDraft, setSavedTitleDraft] = useState("");
   const [savedActionState, setSavedActionState] = useState<"idle" | "loading" | "error">("idle");
+  const generationRef = useRef(0);
   const stepTwoRef = useRef<HTMLDivElement>(null);
   const stepThreeRef = useRef<HTMLDivElement>(null);
   const sharedPlanLoadedRef = useRef(false);
@@ -317,7 +243,7 @@ export default function TripPlanner({
   const stepTwoUnlocked = hasChosenRegion;
   const stepThreeUnlocked = mustVisitIds.length > 0;
   const currentStep = !hasChosenRegion ? 1 : !stepThreeUnlocked ? 2 : 3;
-  const draftSaved = draftReady && hasChosenRegion && selectedPlaces.length > 0;
+  const draftSaved = draftReady && !draftError && hasChosenRegion && selectedPlaces.length > 0;
 
   useEffect(() => {
     const elements = Array.from(document.querySelectorAll<HTMLElement>("[data-reveal]"));
@@ -412,7 +338,7 @@ export default function TripPlanner({
         initialPlan = stored ? parseSharedPlan(JSON.parse(stored)) : null;
         if (stored && !initialPlan) window.localStorage.removeItem(draftStorageKey);
       } catch {
-        window.localStorage.removeItem(draftStorageKey);
+        try { window.localStorage.removeItem(draftStorageKey); } catch { /* Storage may be disabled. */ }
       }
     }
     if (!initialPlan && !sharedSlug) {
@@ -446,6 +372,10 @@ export default function TripPlanner({
         setRegionId(sharedPlan.regionId);
         setHasChosenRegion(true);
         setStyle(sharedPlan.style);
+        setJournal(sharedPlan.journal ?? emptyJournal());
+        if (!encoded && !sharedSlug) {
+          try { setActiveSavedId(window.localStorage.getItem("momotabi:active-trip") ?? ""); } catch { /* Storage may be disabled. */ }
+        }
         setPreferences(sharedPlan.preferences);
         setSelectedPlaces(sharedPlan.places);
         setMustVisitIds(
@@ -479,7 +409,7 @@ export default function TripPlanner({
   useEffect(() => {
     if (!draftReady) return;
     if (!hasChosenRegion || selectedPlaces.length === 0) {
-      window.localStorage.removeItem(draftStorageKey);
+      try { window.localStorage.removeItem(draftStorageKey); } catch { queueMicrotask(() => setDraftError(true)); }
       return;
     }
     const draft: SharedPlan = {
@@ -491,10 +421,17 @@ export default function TripPlanner({
       selectedLodging,
       itineraryPlan,
       budget: budgetEstimate,
+      journal,
     };
-    window.localStorage.setItem(draftStorageKey, JSON.stringify(draft));
+    try {
+      window.localStorage.setItem(draftStorageKey, JSON.stringify(draft));
+      window.localStorage.setItem("momotabi:active-trip", activeSavedId);
+      queueMicrotask(() => setDraftError(false));
+    } catch { queueMicrotask(() => setDraftError(true)); }
   }, [
     draftReady,
+    journal,
+    activeSavedId,
     hasChosenRegion,
     budgetEstimate,
     itineraryPlan,
@@ -546,11 +483,13 @@ export default function TripPlanner({
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
+        id: activeSavedId || undefined,
         regionId,
         style,
         dayCount: course.dayCount,
         placeIds: selectedPlaces.map((place) => place.id),
         placeSnapshots: selectedPlaces.filter((place) => place.source === "google"),
+        plan: { regionId, style, places: selectedPlaces, preferences, lockedPlaceIds, selectedLodging, itineraryPlan, budget: budgetEstimate, journal },
       }),
     })
       .then(async (response) => {
@@ -560,6 +499,7 @@ export default function TripPlanner({
       .then((data) => {
         window.sessionStorage.removeItem("momotabi:sync-draft-on-login");
         setSavedCourses((current) => [data.course, ...current.filter((saved) => saved.id !== data.course.id)]);
+      setActiveSavedId(data.course.id ?? "");
         setSaveState("saved");
         trackFunnelEvent("trip_saved", {
           regionId,
@@ -568,9 +508,10 @@ export default function TripPlanner({
         });
       })
       .catch(() => setSaveState("error"));
-  }, [course.dayCount, draftReady, regionId, selectedPlaces, style, user]);
+  }, [course.dayCount, draftReady, regionId, selectedPlaces, style, user, preferences, lockedPlaceIds, selectedLodging, itineraryPlan, budgetEstimate, journal, activeSavedId]);
 
   function resetGeneratedPlan() {
+    generationRef.current += 1;
     setItineraryPlan(null);
     setItineraryState("idle");
     setShareState("idle");
@@ -585,6 +526,9 @@ export default function TripPlanner({
     });
 
     setHasChosenRegion(true);
+    setActiveSavedId("");
+    setJournal(emptyJournal());
+    setSharePath("");
     setRegionId(nextRegionId);
     setMustVisitIds([]);
     setRecommendations([]);
@@ -598,7 +542,7 @@ export default function TripPlanner({
     setLodgingResults([]);
     setLodgingSearchState("idle");
     setSelectedLodging(null);
-    setPreferences((current) => ({ ...current, startLocation: "" }));
+    setPreferences((current) => ({ ...current, startLocation: "", placeSchedules: {} }));
     setActivePlaceId("");
     setLockedPlaceIds([]);
     setItineraryPlan(null);
@@ -635,14 +579,15 @@ export default function TripPlanner({
 
   function toggleMustVisit(place: TravelPlace) {
     const selected = mustVisitIds.includes(place.id);
-    const unlocksNextStep = !selected && mustVisitIds.length === 0;
+    if (selected) { removeCoursePlace(place.id); return; }
+    const unlocksNextStep = mustVisitIds.length === 0;
     setMustVisitIds((current) =>
       selected ? current.filter((id) => id !== place.id) : [...current, place.id],
     );
     setSelectedPlaces((current) =>
       selected
         ? current.filter((candidate) => candidate.id !== place.id)
-        : current.some((candidate) => candidate.id === place.id) || current.length >= 9
+        : current.some((candidate) => candidate.id === place.id) || current.length >= MAX_TRIP_PLACES
           ? current
           : [...current, place],
     );
@@ -650,7 +595,7 @@ export default function TripPlanner({
     if (!selected) {
       trackFunnelEvent("place_added", {
         regionId,
-        placeCount: Math.min(9, selectedPlaces.length + 1),
+        placeCount: Math.min(MAX_TRIP_PLACES, selectedPlaces.length + 1),
         dayCount: preferences.dayCount,
       });
     }
@@ -668,6 +613,11 @@ export default function TripPlanner({
 
   async function generateRecommendations(kind: RecommendationKind = recommendationKind) {
     if (mustVisitIds.length === 0) return;
+    if (!user) {
+      window.sessionStorage.setItem("momotabi:sync-draft-on-login", "1");
+      window.location.assign("/login");
+      return;
+    }
     setRecommendationKind(kind);
     setRecommendationState("loading");
     setSaveState("idle");
@@ -683,6 +633,11 @@ export default function TripPlanner({
           transport: preferences.transport,
         }),
       });
+      if (response.status === 401) {
+        window.sessionStorage.setItem("momotabi:sync-draft-on-login", "1");
+        window.location.assign("/login");
+        return;
+      }
       if (!response.ok) throw new Error("recommendation_failed");
       const data = (await response.json()) as {
         recommendations: PlaceRecommendation[];
@@ -741,15 +696,16 @@ export default function TripPlanner({
 
   function toggleRecommendedPlace(place: PlaceRecommendation) {
     const selected = selectedPlaces.some((candidate) => candidate.id === place.id);
+    if (selected) { removeCoursePlace(place.id); return; }
     setSelectedPlaces((current) =>
       selected
         ? current.filter((candidate) => candidate.id !== place.id)
-        : current.length >= 9
+        : current.length >= MAX_TRIP_PLACES
           ? current
           : [...current, place],
     );
     if (!selected) setActivePlaceId(place.id);
-    if (!selected && selectedPlaces.length < 9) {
+    if (!selected && selectedPlaces.length < MAX_TRIP_PLACES) {
       trackFunnelEvent("place_added", {
         regionId,
         placeCount: selectedPlaces.length + 1,
@@ -760,6 +716,7 @@ export default function TripPlanner({
   }
 
   function removeCoursePlace(placeId: string) {
+    setJournal((current) => ({ ...current, visited: current.visited.filter((id) => id !== placeId), memos: Object.fromEntries(Object.entries(current.memos).filter(([id]) => id !== placeId)) }));
     setSelectedPlaces((current) => current.filter((place) => place.id !== placeId));
     setMustVisitIds((current) => current.filter((id) => id !== placeId));
     if (mustVisitIds.includes(placeId)) {
@@ -807,18 +764,20 @@ export default function TripPlanner({
     resetGeneratedPlan();
   }
 
-  async function generateItinerary() {
-    if (selectedPlaces.length === 0 || itineraryState === "loading") return;
+  async function generateItinerary(nextPreferences = preferences) {
+    if (selectedPlaces.length === 0) return;
+    const generation = ++generationRef.current;
     setItineraryState("loading");
     setShareState("idle");
     try {
       const response = await fetch("/api/itinerary", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ places: selectedPlaces, preferences, lockedPlaceIds }),
+        body: JSON.stringify({ places: selectedPlaces, preferences: nextPreferences, lockedPlaceIds }),
       });
       if (!response.ok) throw new Error("itinerary_failed");
       const data = (await response.json()) as { plan: ItineraryPlan };
+      if (generation !== generationRef.current) return;
       setItineraryPlan(data.plan);
       const orderedPlaces = data.plan.days.flatMap((day) =>
         day.activities.flatMap((activity) => activity.kind === "place" ? [activity.place] : []),
@@ -832,7 +791,10 @@ export default function TripPlanner({
       const detailsMap = Object.fromEntries(
         details.filter((entry): entry is readonly [string, PlaceDetails] => Boolean(entry[1])),
       );
+      if (generation !== generationRef.current) return;
       setItineraryPlan(adjustPlanForOpeningHours(data.plan, detailsMap));
+      setSaveState("idle");
+      if (data.plan.provider !== "google") trackFunnelEvent("route_estimate_used", { regionId });
       setItineraryState("ready");
       trackFunnelEvent("itinerary_generated", {
         regionId,
@@ -840,7 +802,9 @@ export default function TripPlanner({
         dayCount: data.plan.days.length,
       });
     } catch {
+      if (generation !== generationRef.current) return;
       setItineraryState("error");
+      trackFunnelEvent("itinerary_failed", { regionId });
     }
   }
 
@@ -857,6 +821,9 @@ export default function TripPlanner({
         ...preferences,
         dayCount: 1,
         startDate: currentDay.date || preferences.startDate,
+        firstDayStartTime: dayNumber === 1 ? preferences.firstDayStartTime : "",
+        lastDayEndTime: dayNumber === preferences.dayCount ? preferences.lastDayEndTime : "",
+        placeSchedules: Object.fromEntries(dayPlaces.map(place => [place.id, { dayNumber: 1, ...(preferences.placeSchedules?.[place.id]?.time ? { time: preferences.placeSchedules[place.id].time } : {}) }])),
       };
       const response = await fetch("/api/itinerary", {
         method: "POST",
@@ -882,7 +849,7 @@ export default function TripPlanner({
       if (!replacement || !itineraryPlan) throw new Error("day_regeneration_empty");
       const nextPlan: ItineraryPlan = {
         ...itineraryPlan,
-        provider: adjusted.provider,
+        provider: itineraryPlan.days.every(day => day.dayNumber === dayNumber || day.routeProvider === adjusted.provider) ? adjusted.provider : "mixed",
         warnings: [
           ...itineraryPlan.warnings.filter((warning) => !warning.startsWith(`${dayNumber}일차`)),
           `${dayNumber}일차 동선을 새로 계산했어요.`,
@@ -895,6 +862,9 @@ export default function TripPlanner({
         ),
       };
       setItineraryPlan(nextPlan);
+      setSaveState("idle");
+      setShareState("idle");
+      trackFunnelEvent("itinerary_edited", { regionId });
       setSelectedPlaces(
         nextPlan.days.flatMap((day) =>
           day.activities.flatMap((activity) =>
@@ -910,30 +880,29 @@ export default function TripPlanner({
     }
   }
 
-  function updatePlannedVisitTime(dayNumber: number, placeId: string, scheduledTime: string) {
-    if (!/^\d{2}:\d{2}$/.test(scheduledTime)) return;
-    setItineraryPlan((current) => current ? {
-      ...current,
-      days: current.days.map((day) => day.dayNumber !== dayNumber ? day : {
-        ...day,
-        activities: day.activities.map((activity) => {
-          if (activity.kind !== "place" || activity.place.id !== placeId) return activity;
-          let duration = minutesFromTime(activity.endTime) - minutesFromTime(activity.scheduledTime);
-          if (duration <= 0) duration += 24 * 60;
-          return {
-            ...activity,
-            scheduledTime,
-            endTime: timeFromMinutes(minutesFromTime(scheduledTime) + duration),
-            openingNote: undefined,
-          };
-        }),
-      }),
-    } : current);
-    setSaveState("idle");
+  function changePlannedPlace(placeId: string, dayNumber: number, time?: string) {
+    if (!itineraryPlan) return;
+    const placeSchedules: NonNullable<PlanPreferences["placeSchedules"]> = {};
+    for (const day of itineraryPlan.days) {
+      for (const activity of day.activities) {
+        if (activity.kind !== "place") continue;
+        placeSchedules[activity.place.id] = { dayNumber: day.dayNumber,
+          ...(preferences.placeSchedules?.[activity.place.id]?.time ? { time: preferences.placeSchedules[activity.place.id].time } : {}) };
+      }
+    }
+    placeSchedules[placeId] = { dayNumber, ...(time ? { time } : {}) };
+    const nextPreferences = { ...preferences, placeSchedules };
+    setPreferences(nextPreferences);
+    trackFunnelEvent("itinerary_edited", { regionId });
+    void generateItinerary(nextPreferences);
   }
 
   function updatePreferences<Key extends keyof PlanPreferences>(key: Key, value: PlanPreferences[Key]) {
     const nextPreferences = { ...preferences, [key]: value };
+    if (key === "dayCount") {
+      nextPreferences.placeSchedules = Object.fromEntries(Object.entries(preferences.placeSchedules ?? {})
+        .filter(([, schedule]) => schedule.dayNumber <= Number(value)));
+    }
     setPreferences(nextPreferences);
     if (["budget", "companion", "dayCount", "transport"].includes(key)) {
       setBudgetEstimate(createBudgetEstimate(nextPreferences));
@@ -961,14 +930,14 @@ export default function TripPlanner({
     if (waypoints.length) parameters.set("waypoints", waypoints.map(coordinate).join("|"));
     parameters.set(
       "travelmode",
-      preferences.transport === "transit" ? "transit" : preferences.transport === "driving" ? "driving" : "walking",
+      isPublicTransportMode(preferences.transport) ? "transit" : preferences.transport === "driving" ? "driving" : "walking",
     );
     return `https://www.google.com/maps/dir/?${parameters.toString()}`;
   }
 
   async function shareCurrentPlan() {
     if (selectedPlaces.length === 0) return;
-    const sharedPlan: SharedPlan = {
+    const sharedPlan: SharedPlan = publicPlan({
       regionId,
       style,
       places: selectedPlaces,
@@ -977,7 +946,8 @@ export default function TripPlanner({
       selectedLodging,
       itineraryPlan,
       budget: budgetEstimate,
-    };
+      journal,
+    });
     setShareState("creating");
     try {
       const response = await fetch("/api/share", {
@@ -987,6 +957,7 @@ export default function TripPlanner({
       });
       if (!response.ok) throw new Error("share_failed");
       const data = (await response.json()) as { path: string };
+      setSharePath(data.path);
       const url = new URL(data.path, window.location.origin);
       await navigator.clipboard.writeText(url.toString());
       setShareState("copied");
@@ -1066,8 +1037,11 @@ export default function TripPlanner({
       setMustVisitIds([]);
       setCatalogState("error");
     }
+    setActiveSavedId(savedCourse.id ?? "");
+    setJournal(savedCourse.savedPlan?.journal ?? emptyJournal());
+    setSharePath("");
     setStyle(savedCourse.style);
-    const nextPreferences = { ...preferences, dayCount: savedCourse.dayCount };
+    const nextPreferences = savedCourse.savedPlan?.preferences ?? { ...defaultPreferences, dayCount: savedCourse.dayCount };
     setPreferences(nextPreferences);
     setBudgetEstimate(createBudgetEstimate(nextPreferences));
     setRecommendations([]);
@@ -1075,20 +1049,22 @@ export default function TripPlanner({
     setRecommendationKind("attractions");
     setPlaceSearchQuery("");
     setPlaceSearchResults([]);
-    setSelectedLodging(null);
-    setLodgingQuery("");
+    setSelectedLodging(savedCourse.savedPlan?.selectedLodging ?? null);
+    setLodgingQuery(nextPreferences.startLocation);
     setLodgingResults([]);
-    setSelectedPlaces(places);
+    setSelectedPlaces(savedCourse.savedPlan?.places ?? places);
     setActivePlaceId(places[0]?.id ?? "");
-    setLockedPlaceIds([]);
-    setItineraryPlan(null);
-    setItineraryState("idle");
+    setLockedPlaceIds(savedCourse.savedPlan?.lockedPlaceIds ?? []);
+    setItineraryPlan(savedCourse.savedPlan?.itineraryPlan ?? null);
+    setItineraryState(savedCourse.savedPlan?.itineraryPlan ? "ready" : "idle");
+    if (savedCourse.savedPlan?.budget) setBudgetEstimate(savedCourse.savedPlan.budget);
     setSaveState("saved");
   }
 
   async function saveCurrentCourse() {
     if (selectedPlaces.length === 0 || saveState === "saving") return;
     if (!user) {
+      window.sessionStorage.setItem("momotabi:sync-draft-on-login", "1");
       window.location.assign("/login");
       return;
     }
@@ -1098,16 +1074,19 @@ export default function TripPlanner({
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
+          id: activeSavedId || undefined,
           regionId,
           style,
           dayCount: course.dayCount,
           placeIds: selectedPlaces.map((place) => place.id),
           placeSnapshots: selectedPlaces.filter((place) => place.source === "google"),
+          plan: { regionId, style, places: selectedPlaces, preferences, lockedPlaceIds, selectedLodging, itineraryPlan, budget: budgetEstimate, journal },
         }),
       });
       if (!response.ok) throw new Error("save_failed");
       const data = (await response.json()) as { course: TravelCourse };
       setSavedCourses((current) => [data.course, ...current.filter((saved) => saved.id !== data.course.id)]);
+      setActiveSavedId(data.course.id ?? "");
       setSaveState("saved");
       trackFunnelEvent("trip_saved", {
         regionId,
@@ -1169,6 +1148,7 @@ export default function TripPlanner({
       });
       if (!response.ok) throw new Error("delete_failed");
       setSavedCourses((current) => current.filter((course) => course.id !== itineraryId));
+      if (activeSavedId === itineraryId) { setActiveSavedId(""); setSaveState("idle"); }
       setSavedActionState("idle");
     } catch {
       setSavedActionState("error");
@@ -1177,6 +1157,7 @@ export default function TripPlanner({
 
   async function signOut() {
     await authClient.signOut();
+    try { window.localStorage.removeItem("momotabi:active-trip"); } catch { /* Storage may be disabled. */ }
     window.location.assign("/");
   }
 
@@ -1200,40 +1181,62 @@ export default function TripPlanner({
       )[0]
     : undefined;
   const activeOpeningStatus = activePlanEntry
-    ? openingStatus(activeDetails, activePlanEntry.day.date, activePlanEntry.activity.scheduledTime)
+    ? openingStatus(activeDetails, activePlanEntry.day.date, activePlanEntry.activity.scheduledTime, activePlanEntry.activity.endTime)
     : "unknown";
 
   return (
     <main className="app-shell" id="top">
-      <header className="topbar">
-        <a className="brand" href="#top" aria-label="모모타비 홈"><span className="brand-mark">も</span><span>MOMOTABI</span></a>
-        <nav aria-label="주요 메뉴">
-          <a className="section-link active" href="#planner">코스 만들기</a>
-          <a className="section-link" href="#saved">내 코스</a>
-          {user && (
-            <button className={`save-button ${saveState === "saved" ? "is-saved" : ""}`} onClick={saveCurrentCourse} type="button" disabled={selectedPlaces.length === 0 || saveState === "saving"}>
-              {saveState === "saving" ? "저장 중…" : saveState === "saved" ? "저장됨 ✓" : "이 코스 저장"}
-            </button>
-          )}
-          {user ? (
-            <div className="account-control">
-              <div className="account-chip" title={user.email} aria-label={`${user.displayName} 계정으로 로그인됨`}><span className="account-avatar" aria-hidden="true">{userInitial}</span><span className="account-copy"><strong>{user.displayName}</strong><small>로그인됨</small></span></div>
-              <button className="sign-out-link" type="button" onClick={signOut}>로그아웃</button>
-            </div>
-          ) : <a className="sign-in-link" href="/login" onClick={() => window.sessionStorage.setItem("momotabi:sync-draft-on-login", "1")}>로그인</a>}
-        </nav>
-      </header>
+      <section className="landing-intro" aria-labelledby="landing-title">
+        <div className="landing-stage">
+          <div className="landing-grid" aria-hidden="true" />
+          <div className="landing-copy">
+            <p>MOMOTABI · JAPAN TRIP PLANNER</p>
+            <h1 id="landing-title">여행의 시작을<br />손에 올려보세요.</h1>
+            <span>SCROLL TO EXPLORE</span>
+          </div>
+          <div className="journey-object" aria-hidden="true">
+            <div className="journey-object__ring journey-object__ring--back" />
+            <div className="journey-object__core"><span>旅</span></div>
+            <div className="journey-object__ring journey-object__ring--front" />
+            <div className="journey-object__shadow" />
+          </div>
+          <a className="landing-skip" href="#planner">여행 계획 시작하기 <span aria-hidden="true">↓</span></a>
+        </div>
+      </section>
 
-      <section className="route-panel" id="planner">
+      <div className="planner-experience">
+        <header className="topbar">
+          <a className="brand" href="#top" aria-label="모모타비 홈"><span className="brand-mark">も</span><span>MOMOTABI</span></a>
+          <nav aria-label="주요 메뉴">
+            <a className="section-link active" href="#planner">코스 만들기</a>
+            <a className="section-link" href="#saved">내 코스</a>
+            {user && (
+              <button className={`save-button ${saveState === "saved" ? "is-saved" : ""}`} onClick={saveCurrentCourse} type="button" disabled={selectedPlaces.length === 0 || saveState === "saving"}>
+                {saveState === "saving" ? "저장 중…" : saveState === "saved" ? "저장됨 ✓" : activeSavedId ? "코스 수정 저장" : "이 코스 저장"}
+              </button>
+            )}
+            {user ? (
+              <div className="account-control">
+                <div className="account-chip" title={user.email} aria-label={`${user.displayName} 계정으로 로그인됨`}><span className="account-avatar" aria-hidden="true">{userInitial}</span><span className="account-copy"><strong>{user.displayName}</strong><small>로그인됨</small></span></div>
+                <button className="sign-out-link" type="button" onClick={signOut}>로그아웃</button>
+              </div>
+            ) : <a className="sign-in-link" href="/login" onClick={() => window.sessionStorage.setItem("momotabi:sync-draft-on-login", "1")}>로그인</a>}
+          </nav>
+        </header>
+
+        <section className="route-panel" id="planner">
         <div className="route-heading" key={catalog.region.id}>
           <div className="city-chip"><span className="city-dot" /> {catalog.region.nameEn} <b>{catalog.region.nameJp}</b></div>
-          <p className="eyebrow">BUILD YOUR OWN ROUTE · {catalog.region.eyebrow}</p>
-          <h1>꼭 가고 싶은 곳부터<br />나만의 코스로</h1>
+          <p className="eyebrow">나만의 일본 여행 코스</p>
+          <h1>가고 싶은 곳을 담아<br />나만의 일본 여행</h1>
           <p className="intro">필수 관광지를 고르면 가까이 함께 둘러보기 좋은 장소를 추천해 드려요.</p>
-          <div className="route-meta" aria-label="코스 요약"><span>{selectedPlaces.length}개 장소</span><i /><span>{course.dayCount}일 예상</span><i /><span>{styleLabels[style]}</span></div>
+          <div className="route-meta" aria-label="코스 요약"><span>{selectedPlaces.length}개 장소</span><i /><span>{preferences.dayCount}일 여행</span><i /><span>{styleLabels[style]}</span></div>
         </div>
 
-        <section className="planner-card guided-planner" aria-labelledby="planner-title" data-reveal>
+        <nav className="workflow-nav" aria-label="여행 계획 단계">
+          <a href="#place-picker">1. 장소 담기</a><a href="#itinerary">2. 일정 완성</a><a href="#save-plan">3. 저장·공유</a>
+        </nav>
+        <section id="place-picker" className="planner-card guided-planner" aria-labelledby="planner-title" data-reveal>
           <div className="planner-title-row"><div><span>STEP BY STEP</span><h2 id="planner-title">여행 코스를 만들어 볼까요?</h2></div><strong>{String(currentStep).padStart(2, "0")} — 03</strong></div>
           <div className="planner-progress" role="progressbar" aria-label="여행 코스 설정 진행률" aria-valuemin={1} aria-valuemax={3} aria-valuenow={currentStep}><span style={{ width: `${(currentStep / 3) * 100}%` }} /></div>
 
@@ -1297,7 +1300,7 @@ export default function TripPlanner({
             <div className="step-heading">
               <b>03</b>
               <div><span>근교 추천</span><h3>선택한 곳 근처를 함께 둘러봐요</h3></div>
-              <small className="step-state">{stepThreeUnlocked ? styleLabels[style] : "2단계 선택 후 열림"}</small>
+              <small className="step-state">{stepThreeUnlocked ? user ? styleLabels[style] : "로그인 후 추천" : "2단계 선택 후 열림"}</small>
             </div>
             {!stepThreeUnlocked ? (
               <div className="step-locked-message"><span aria-hidden="true">03</span><p>필수 관광지를 하나 이상 선택하면<br />근교 추천 설정이 열려요.</p></div>
@@ -1307,7 +1310,7 @@ export default function TripPlanner({
                   {travelStyles.map((item) => <button key={item} type="button" className={style === item ? "selected" : ""} aria-pressed={style === item} onClick={() => { setStyle(item); setRecommendations([]); setRecommendationProvider(null); resetGeneratedPlan(); }}>{styleLabels[item]}</button>)}
                 </div>
                 <div className="step-transport">
-                  <span>근교 이동시간 기준</span>
+                  <span>근교 이동시간 기준 · 지하철/버스만 따로 선택 가능</span>
                   <div role="group" aria-label="근교 추천 이동 수단">
                     {transportModes.map((transport) => (
                       <button
@@ -1350,19 +1353,27 @@ export default function TripPlanner({
                         <article key={place.id} className={selected ? "selected" : ""} style={{ animationDelay: `${index * 45}ms` }}>
                           <PlaceCardPhoto name={place.name} photoUrl={place.photoUrl} photoAttribution={place.photoAttribution} photoLink={place.photoGoogleMapsUri || place.externalUrl} className="nearby-photo" />
                           <div className="nearby-copy"><span>{recommendationTravelLabel(place)}</span><strong>{place.name}</strong><small>{place.category} · {place.description}</small></div>
-                          <button type="button" disabled={!selected && selectedPlaces.length >= 9} onClick={() => toggleRecommendedPlace(place)}>{selected ? "담김 ✓" : "+ 담기"}</button>
+                          <button type="button" disabled={!selected && selectedPlaces.length >= MAX_TRIP_PLACES} onClick={() => toggleRecommendedPlace(place)}>{selected ? "담김 ✓" : "+ 담기"}</button>
                         </article>
                       );
                     })}
                   </div>
                 )}
-                <div className="recommend-kind" role="group" aria-label="추천 종류">
-                  <button type="button" className={recommendationKind === "attractions" ? "selected" : ""} onClick={() => { setRecommendationKind("attractions"); setRecommendations([]); }}>관광지</button>
-                  <button type="button" className={recommendationKind === "food" ? "selected" : ""} onClick={() => { setRecommendationKind("food"); setRecommendations([]); }}>맛집·카페</button>
-                </div>
-                <button className="recommend-button" type="button" onClick={() => generateRecommendations()} disabled={recommendationState === "loading"}><span>{recommendationState === "loading" ? "가까운 장소를 찾는 중…" : recommendationKind === "food" ? "동선 근처 맛집 추천받기" : "근교 관광지 추천받기"}</span><b aria-hidden="true">→</b></button>
-                {recommendationState === "error" && <p className="inline-error" role="alert">근교 추천을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.</p>}
-                {recommendations.length > 0 && (
+                {user ? <>
+                  <div className="recommend-kind" role="group" aria-label="추천 종류">
+                    <button type="button" className={recommendationKind === "attractions" ? "selected" : ""} onClick={() => { setRecommendationKind("attractions"); setRecommendations([]); }}>관광지</button>
+                    <button type="button" className={recommendationKind === "food" ? "selected" : ""} onClick={() => { setRecommendationKind("food"); setRecommendations([]); }}>맛집·카페</button>
+                  </div>
+                  <button className="recommend-button" type="button" onClick={() => generateRecommendations()} disabled={recommendationState === "loading"}><span>{recommendationState === "loading" ? "가까운 장소를 찾는 중…" : recommendationKind === "food" ? "동선 근처 맛집 추천받기" : "근교 관광지 추천받기"}</span><b aria-hidden="true">→</b></button>
+                  {recommendationState === "error" && <p className="inline-error" role="alert">근교 추천을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.</p>}
+                </> : (
+                  <div className="recommend-login-gate" role="note">
+                    <span aria-hidden="true">↗</span>
+                    <div><strong>로그인 후 근교 추천을 받을 수 있어요.</strong><p>지금 고른 관광지는 이 기기에 임시저장되어 로그인 뒤에도 이어집니다.</p></div>
+                    <a href="/login" onClick={() => window.sessionStorage.setItem("momotabi:sync-draft-on-login", "1")}>로그인하고 추천받기</a>
+                  </div>
+                )}
+                {user && recommendations.length > 0 && (
                   <div className="nearby-list" aria-label={recommendationKind === "food" ? "근처 맛집 추천" : "근교 추천 관광지"}>
                     <p className="nearby-summary"><strong>{recommendations.length}곳</strong>을 찾았어요. 마음에 드는 장소를 코스에 담아보세요.</p>
                     {recommendations.map((place, index) => {
@@ -1381,7 +1392,7 @@ export default function TripPlanner({
                             <strong>{place.name}</strong>
                             <small>{place.category} · {place.description}</small>
                           </div>
-                          <button type="button" disabled={!selected && selectedPlaces.length >= 9} onClick={() => toggleRecommendedPlace(place)} aria-label={`${place.name} ${selected ? "코스에서 빼기" : "코스에 담기"}`}>{selected ? "담김 ✓" : "+ 담기"}</button>
+                          <button type="button" disabled={!selected && selectedPlaces.length >= MAX_TRIP_PLACES} onClick={() => toggleRecommendedPlace(place)} aria-label={`${place.name} ${selected ? "코스에서 빼기" : "코스에 담기"}`}>{selected ? "담김 ✓" : "+ 담기"}</button>
                         </article>
                       );
                     })}
@@ -1398,7 +1409,7 @@ export default function TripPlanner({
         </section>
 
         <section className="course-builder" aria-labelledby="course-title" data-reveal>
-          <div className="saved-heading"><div><span>MY ROUTE</span><h2 id="course-title">내 여행 코스</h2></div><small>{selectedPlaces.length}/9개 장소</small></div>
+          <div className="saved-heading"><div><span>MY ROUTE</span><h2 id="course-title">내 여행 코스</h2></div><small>{selectedPlaces.length}/{MAX_TRIP_PLACES}개 장소</small></div>
           {draftSaved && <p className="draft-status"><span aria-hidden="true">✓</span> 작성 중인 코스는 이 기기에 자동 임시저장돼요.</p>}
           {selectedPlaces.length === 0 ? <p className="saved-empty">필수 관광지를 선택하면 지도와 코스에 바로 표시됩니다.</p> : (
             <div className="course-place-list" role="list" aria-label="내 여행 코스에 담긴 관광지">
@@ -1449,10 +1460,10 @@ export default function TripPlanner({
                     <div className={`opening-badge ${activeOpeningStatus === "closed" ? "is-warning" : ""}`}>
                       {activePlanEntry
                         ? activeOpeningStatus === "open"
-                          ? `${activePlanEntry.day.date} ${activePlanEntry.activity.scheduledTime} 방문 가능`
+                          ? `${activePlanEntry.day.date} 등록된 영업시간 내 방문`
                           : activeOpeningStatus === "closed"
                             ? "일정 시간과 영업시간이 겹치지 않아요"
-                            : "일정 생성 후 영업시간을 함께 확인해 드려요"
+                            : preferences.startDate ? "영업시간 정보 미확인" : "여행 시작일을 입력하면 영업시간을 확인해요"
                         : activeDetails.openNow === true
                           ? "현재 영업 중"
                           : activeDetails.openNow === false
@@ -1473,12 +1484,15 @@ export default function TripPlanner({
           {saveState === "error" && <p className="inline-error" role="alert">코스를 저장하지 못했어요. 로그인 상태를 확인해 주세요.</p>}
         </section>
 
-        <section className="itinerary-builder" aria-labelledby="itinerary-title" data-reveal>
-          <div className="saved-heading"><div><span>SMART ITINERARY</span><h2 id="itinerary-title">여행 일정 자동 완성</h2></div><small>동선·영업시간 반영</small></div>
-          <p className="itinerary-intro">여행 조건을 알려주면 가까운 장소끼리 묶고, 영업시간과 식사 시간을 확인해 하루별 일정을 만들어요.</p>
+        <section id="itinerary" className="itinerary-builder" aria-labelledby="itinerary-title" data-reveal>
+          <div className="saved-heading"><div><span>SMART ITINERARY</span><h2 id="itinerary-title">여행 일정 자동 완성</h2></div><small>추천 시간대·이동시간 고려</small></div>
+          <p className="itinerary-intro">가까운 장소와 체류시간을 기준으로 하루씩 묶어요. 날짜를 입력하면 등록된 영업시간도 확인해요. 예약시간은 따로 고정할 수 있어요.</p>
           <div className="preference-grid">
             <label><span>여행 시작일</span><input type="date" value={preferences.startDate} onChange={(event) => updatePreferences("startDate", event.target.value)} /></label>
-            <label><span>여행 일수</span><select value={preferences.dayCount} onChange={(event) => updatePreferences("dayCount", Number(event.target.value))}><option value={1}>1일</option><option value={2}>2일</option><option value={3}>3일</option></select></label>
+            <label><span>여행 일수</span><select value={preferences.dayCount} onChange={(event) => updatePreferences("dayCount", Number(event.target.value))}>{Array.from({ length: MAX_TRIP_DAYS }, (_, index) => <option key={index + 1} value={index + 1}>{index + 1}일</option>)}</select></label>
+            <label><span>첫날 관광 시작</span><input type="time" value={preferences.firstDayStartTime ?? ""} onChange={(event) => updatePreferences("firstDayStartTime", event.target.value)} /></label>
+            <label><span>마지막 날 관광 종료</span><input type="time" value={preferences.lastDayEndTime ?? ""} onChange={(event) => updatePreferences("lastDayEndTime", event.target.value)} /></label>
+            <p className="preference-help wide">일본 현지 시간 기준이에요. 공항 이동·입출국 수속 시간을 제외한 관광 가능 시간을 입력해 주세요.</p>
             <div className="lodging-field wide">
               <label htmlFor="lodging-search"><span>출발지 또는 숙소</span></label>
               <form className="lodging-search-row" onSubmit={(event) => { event.preventDefault(); void searchGooglePlaces("lodging"); }}>
@@ -1519,17 +1533,18 @@ export default function TripPlanner({
             <label><span>예산</span><select value={preferences.budget} onChange={(event) => updatePreferences("budget", event.target.value as PlanPreferences["budget"])}>{travelBudgets.map((budget) => <option key={budget} value={budget}>{budgetLabels[budget]}</option>)}</select></label>
           </div>
           <fieldset className="preference-group"><legend>누구와 가나요?</legend><div>{companionTypes.map((companion) => <button key={companion} type="button" className={preferences.companion === companion ? "selected" : ""} onClick={() => updatePreferences("companion", companion)}>{companionLabels[companion]}</button>)}</div></fieldset>
-          <fieldset className="preference-group"><legend>주요 이동 수단</legend><div>{transportModes.map((transport) => <button key={transport} type="button" className={preferences.transport === transport ? "selected" : ""} onClick={() => updatePreferences("transport", transport)}>{transportLabels[transport]}</button>)}</div></fieldset>
-          <div className="meal-toggle"><input id="include-meals" type="checkbox" aria-label="식사 시간도 일정에 넣기" checked={preferences.includeMeals} onChange={(event) => updatePreferences("includeMeals", event.target.checked)} /><span><strong>식사 시간도 일정에 넣기</strong><small>동선 중간에 60~75분의 점심 시간을 자동으로 확보해요.</small></span></div>
-          <button className="itinerary-generate" type="button" onClick={generateItinerary} disabled={selectedPlaces.length === 0 || itineraryState === "loading" || itineraryState === "checking"}>
-            <span>{itineraryState === "loading" ? "Google 경로를 계산하는 중…" : itineraryState === "checking" ? "영업시간을 확인하고 조정하는 중…" : "내 일정 자동 완성하기"}</span><b aria-hidden="true">↗</b>
+          <fieldset className="preference-group"><legend>주요 이동 수단</legend><div>{transportModes.map((transport) => <button key={transport} type="button" className={preferences.transport === transport ? "selected" : ""} aria-pressed={preferences.transport === transport} onClick={() => updatePreferences("transport", transport)}>{transportLabels[transport]}</button>)}</div></fieldset>
+          {isPublicTransportMode(preferences.transport) && <p className="transport-help">{preferences.transport === "subway" ? "Google 경로가 있는 구간은 지하철만 이용해 계산해요." : preferences.transport === "bus" ? "Google 경로가 있는 구간은 버스만 이용해 계산해요." : "전철·지하철·버스를 포함한 가장 알맞은 대중교통으로 계산해요."}</p>}
+          <div className="meal-toggle"><input id="include-meals" type="checkbox" aria-label="식사 시간도 일정에 넣기" checked={preferences.includeMeals} onChange={(event) => updatePreferences("includeMeals", event.target.checked)} /><span><strong>식사 시간도 일정에 넣기</strong><small>점심 식당이 있으면 식사로 반영하고, 없으면 일정 중간에 여유를 확보해요.</small></span></div>
+          <button className="itinerary-generate" type="button" onClick={() => void generateItinerary()} disabled={selectedPlaces.length === 0 || itineraryState === "loading" || itineraryState === "checking"}>
+            <span>{itineraryState === "loading" ? "방문 순서와 이동시간을 계산하는 중…" : itineraryState === "checking" ? "영업시간을 확인하고 조정하는 중…" : "내 일정 자동 완성하기"}</span><b aria-hidden="true">↗</b>
           </button>
           {selectedPlaces.length === 0 && <p className="itinerary-help">먼저 필수 관광지를 하나 이상 선택해 주세요.</p>}
           {itineraryState === "error" && <p className="inline-error" role="alert">일정을 만들지 못했어요. 잠시 후 다시 시도해 주세요.</p>}
 
           {itineraryPlan && (
             <div className="itinerary-result" aria-live="polite">
-              <div className="itinerary-result-head"><div><span>{itineraryPlan.provider === "google" ? "GOOGLE ROUTES" : "DISTANCE ESTIMATE"}</span><strong>{itineraryPlan.days.length}일 일정이 완성됐어요</strong></div><small>{itineraryPlan.provider === "google" ? "실제 이동 경로 기준" : "장소 간 거리 기준"}</small></div>
+              <div className="itinerary-result-head"><div><span>{itineraryState === "checking" ? "영업시간 확인 중" : "여행 일정 초안"}</span><strong>{itineraryPlan.days.length}일 여행 일정</strong></div><small>{itineraryPlan.provider === "google" ? "Google 경로 기준" : itineraryPlan.provider === "mixed" ? "실제 경로·추정 혼합" : "이동시간 추정"}</small></div>
               {itineraryPlan.warnings.length > 0 && <div className="plan-warnings">{itineraryPlan.warnings.map((warning, index) => <p key={`${index}-${warning}`}>ℹ {warning}</p>)}</div>}
               <div className="itinerary-days">
                 {itineraryPlan.days.map((day) => (
@@ -1537,28 +1552,34 @@ export default function TripPlanner({
                     <header>
                       <div><span>DAY {String(day.dayNumber).padStart(2, "0")}</span><strong>{day.date || `${day.dayNumber}일차`}</strong></div>
                       <div className="itinerary-day-meta">
-                        <small>이동 {formatDuration(day.totalTravelMinutes)} · {day.totalDistanceKm.toFixed(1)}km</small>
-                        <button type="button" onClick={() => void regenerateItineraryDay(day.dayNumber)} disabled={regeneratingDay !== 0}>
+                        <small>{transportLabels[preferences.transport]} · {day.routeProvider === "google" ? "Google 경로" : "이동 추정"} · {formatDuration(day.totalTravelMinutes)} · {day.totalDistanceKm.toFixed(1)}km</small>
+                        <button type="button" onClick={() => void regenerateItineraryDay(day.dayNumber)} disabled={regeneratingDay !== 0 || itineraryState === "loading" || itineraryState === "checking" || !day.activities.length}>
                           {regeneratingDay === day.dayNumber ? "다시 계산 중…" : "이 날만 다시 짜기"}
                         </button>
                       </div>
                     </header>
+                    {day.activities.length === 0 && <div className="free-day"><strong>자유 일정</strong><p>다른 날의 장소를 옮기거나, 가까운 곳을 더 담아보세요.</p><a href="#place-picker">장소 더 담기 →</a></div>}
                     <div className="timeline">
                       {day.activities.map((activity) => activity.kind === "meal" ? (
                         <div className="timeline-item is-meal" key={activity.id}>
-                          <time>{activity.scheduledTime}</time><i aria-hidden="true">餐</i><div><strong>{activity.label}</strong><small>{activity.nearPlaceName} 주변에서 맛집을 골라보세요.</small><button type="button" onClick={() => { void generateRecommendations("food"); stepThreeRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }); }}>근처 맛집 찾기 →</button></div>
+                          <time>{activity.scheduledTime}</time><i aria-hidden="true">餐</i><div><strong>{activity.label}</strong><small>{activity.nearPlaceName} 주변에서 맛집을 골라보세요.</small><button type="button" onClick={() => { void generateRecommendations("food"); if (user) stepThreeRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }); }}>{user ? "근처 맛집 찾기 →" : "로그인하고 근처 맛집 찾기 →"}</button></div>
                         </div>
                       ) : (
                         <div className={`timeline-item is-place ${activePlace?.id === activity.place.id ? "active" : ""}`} key={activity.place.id}>
                           <label className="timeline-time-editor">
-                            <span>방문시간</span>
-                            <input type="time" value={activity.scheduledTime} onChange={(event) => updatePlannedVisitTime(day.dayNumber, activity.place.id, event.target.value)} aria-label={`${activity.place.name} 방문시간`} />
+                            <span>{activity.timeLocked ? "예약시간" : "방문시간"}</span>
+                            <input type="time" value={activity.scheduledTime} onChange={(event) => { if (event.target.value) changePlannedPlace(activity.place.id, day.dayNumber, event.target.value); }} disabled={itineraryState === "loading" || itineraryState === "checking" || regeneratingDay !== 0} aria-label={`${activity.place.name} 방문시간`} />
                           </label>
                           <time className="print-only">{activity.scheduledTime}</time>
                           <i aria-hidden="true" />
-                          <button className="timeline-place-select" type="button" onClick={() => setActivePlaceId(activity.place.id)}>
-                            <strong>{activity.place.name}</strong><small>{activity.travelMinutesFromPrevious > 0 ? `이전 장소에서 ${formatDuration(activity.travelMinutesFromPrevious)} · ` : ""}{activity.endTime}까지</small>{activity.openingNote && <em>{activity.openingNote}</em>}
+                          <div className="timeline-place-content"><button className="timeline-place-select" type="button" onClick={() => setActivePlaceId(activity.place.id)}>
+                            <strong>{activity.place.name}</strong><small>{activity.travelMinutesFromPrevious > 0 ? `이전 장소에서 ${transportLabels[preferences.transport]} ${formatDuration(activity.travelMinutesFromPrevious)} · ` : ""}{activity.endTime}까지</small>{activity.openingNote && <em>{activity.openingNote}</em>}{activity.scheduleNote && <em className="schedule-warning">{activity.scheduleNote}</em>}
                           </button>
+                          <div className="schedule-status"><span>{activity.routeProvider === "google" ? "Google 경로" : "이동시간 추정"}</span><span>{activity.openingStatus === "open" ? "등록된 영업시간 내" : activity.openingStatus === "closed" ? "영업시간 확인 필요" : "영업시간 미확인"}</span></div>
+                          <div className="place-schedule-controls no-print">
+                            <label>방문일<select aria-label={`${activity.place.name} 방문일`} value={day.dayNumber} disabled={itineraryState === "loading" || itineraryState === "checking" || regeneratingDay !== 0} onChange={(event) => changePlannedPlace(activity.place.id, Number(event.target.value), preferences.placeSchedules?.[activity.place.id]?.time)}>{itineraryPlan.days.map(candidate => <option key={candidate.dayNumber} value={candidate.dayNumber}>{candidate.dayNumber}일차</option>)}</select></label>
+                            <label><input type="checkbox" checked={Boolean(activity.timeLocked)} disabled={itineraryState === "loading" || itineraryState === "checking" || regeneratingDay !== 0} onChange={(event) => changePlannedPlace(activity.place.id, day.dayNumber, event.target.checked ? activity.scheduledTime : undefined)} />예약시간 고정</label>
+                          </div></div>
                         </div>
                       ))}
                     </div>
@@ -1568,25 +1589,38 @@ export default function TripPlanner({
             </div>
           )}
 
+          {selectedPlaces.length > 0 && <TripCompanion
+            key={`${regionId}:${activeSavedId}`}
+            title={course.title}
+            plan={{ regionId, style, places: selectedPlaces, preferences, lockedPlaceIds, selectedLodging, itineraryPlan, budget: budgetEstimate, journal }}
+            onChange={(next) => { setJournal(next); setSaveState("idle"); }}
+          />}
+          {draftError && <p className="inline-error" role="alert">기기에 임시저장하지 못했어요. 계정에 저장하거나 오프라인 파일을 내려받아 주세요.</p>}
+          <div id="save-plan" className="save-plan-callout no-print">
+            <div><strong>내 여행을 이어서 준비하세요</strong><p>{user ? "날짜·방문시간·경비까지 계정에 함께 저장해요." : "로그인하면 이 기기의 임시 일정을 계정에 이어서 저장해요."}</p></div>
+            <button className="save-button" type="button" onClick={saveCurrentCourse} disabled={!selectedPlaces.length || saveState === "saving" || itineraryState === "loading" || itineraryState === "checking" || regeneratingDay !== 0}>{saveState === "saving" ? "저장 중…" : saveState === "saved" ? "저장됨 ✓" : user ? activeSavedId ? "일정 수정 저장" : "이 일정 저장" : "로그인하고 이 일정 저장"}</button>
+          </div>
+          {!preferences.startDate && <p className="itinerary-help no-print">여행 시작일을 입력하면 캘린더로 내보낼 수 있어요.</p>}
           <div className="export-actions no-print" aria-label="일정 공유와 내보내기">
             <button type="button" onClick={shareCurrentPlan} disabled={selectedPlaces.length === 0 || shareState === "creating"}>{shareState === "creating" ? "짧은 링크 만드는 중…" : shareState === "copied" ? "링크 복사됨 ✓" : "짧은 공유 링크"}</button>
             <a href={googleDirectionsUrl()} target="_blank" rel="noreferrer" aria-disabled={selectedPlaces.length === 0}>Google Maps에서 열기 ↗</a>
             <button type="button" onClick={exportCalendar} disabled={!itineraryPlan || !preferences.startDate}>캘린더로 내보내기</button>
             <button type="button" onClick={printCurrentPlan} disabled={selectedPlaces.length === 0}>인쇄·PDF 저장</button>
           </div>
-          {shareState === "error" && <p className="inline-error" role="alert">공유 링크를 복사하지 못했어요. 주소창의 링크를 직접 복사해 주세요.</p>}
+          {sharePath && <p className="itinerary-help no-print"><a href={sharePath} target="_blank" rel="noreferrer">공유 페이지에서 동행자 제안·투표·댓글 보기 ↗</a><br />공유 링크는 생성 당시 일정 사본이에요. 수정한 일정은 새 링크로 공유해 주세요.</p>}
+          {shareState === "error" && <p className="inline-error" role="alert">공유 링크를 복사하지 못했어요. 다시 시도해 주세요.</p>}
         </section>
 
         <BudgetCalculator
           value={budgetEstimate}
           dayCount={preferences.dayCount}
           regionId={regionId}
-          onChange={setBudgetEstimate}
+          onChange={(value) => { setBudgetEstimate(value); setSaveState("idle"); }}
         />
 
         <section className="saved-courses" id="saved" aria-labelledby="saved-title" data-reveal>
           <div className="saved-heading"><div><span>SAVED ROUTES</span><h2 id="saved-title">저장한 코스</h2></div>{user && <small>{savedCourses.length}개 저장됨</small>}</div>
-          {!user ? <p className="saved-empty">로그인하면 직접 담은 관광지와 순서를 계정에 저장할 수 있어요.</p> : savedCourses.length === 0 ? <p className="saved-empty">아직 저장한 코스가 없어요. 관광지를 담고 첫 코스를 저장해 보세요.</p> : (
+          {!user ? <p className="saved-empty">로그인하면 여행 일정과 경비를 계정에 저장할 수 있어요. <a href="/login">로그인하기 →</a></p> : savedCourses.length === 0 ? <p className="saved-empty">아직 저장한 코스가 없어요. 관광지를 담고 첫 코스를 저장해 보세요.</p> : (
             <div className="saved-list">
               {savedCourses.map((saved) => saved.id ? (
                 <article key={saved.id}>
@@ -1624,13 +1658,14 @@ export default function TripPlanner({
         </footer>
       </section>
 
-      <section className="map-panel" aria-label={`${catalog.region.nameKo} 내 여행 코스 지도`}>
-        <TravelMap apiKey={googleMapsApiKey} places={selectedPlaces} startPlace={selectedLodging} activePlaceId={activePlace?.id ?? ""} center={mapCenter} onSelect={setActivePlaceId} />
-        <div className="map-shade" aria-hidden="true" />
-        <div className="map-label" key={`${catalog.region.id}-${selectedPlaces.length}`}>{catalog.region.nameKo} · 내 코스 {selectedPlaces.length}곳</div>
-        <div className="map-legend" aria-label="지도 범례"><span><i /> 내 이동 동선</span><span><b>01</b> 방문 순서</span>{selectedLodging && <span><b className="hotel-legend">宿</b> 숙소 출발점</span>}</div>
-        {activePlace ? <><div className="map-float" key={activePlace.id} aria-live="polite"><span>MY ROUTE · STOP {String(selectedPlaces.indexOf(activePlace) + 1).padStart(2, "0")}</span><strong>{activePlace.name}</strong><small>{activePlace.suggestedTime} 추천 · {durationLabel}</small></div><a className="open-map" href={activePlaceMapUrl} target="_blank" rel="noreferrer" aria-label={`${activePlace.name} Google 지도에서 열기`}>Google 지도에서 보기 ↗</a></> : <div className="map-empty"><span>YOUR ROUTE MAP</span><strong>관광지를 선택하면<br />여기에 코스가 그려져요.</strong><small>선택한 순서대로 번호와 이동선이 표시됩니다.</small></div>}
-      </section>
+        <section className="map-panel" aria-label={`${catalog.region.nameKo} 내 여행 코스 지도`}>
+          <TravelMap apiKey={googleMapsApiKey} places={selectedPlaces} startPlace={selectedLodging} activePlaceId={activePlace?.id ?? ""} center={mapCenter} onSelect={setActivePlaceId} />
+          <div className="map-shade" aria-hidden="true" />
+          <div className="map-label" key={`${catalog.region.id}-${selectedPlaces.length}`}>{catalog.region.nameKo} · 내 코스 {selectedPlaces.length}곳</div>
+          <div className="map-legend" aria-label="지도 범례"><span><i /> 내 이동 동선</span><span><b>01</b> 방문 순서</span>{selectedLodging && <span><b className="hotel-legend">宿</b> 숙소 출발점</span>}</div>
+          {activePlace ? <><div className="map-float" key={activePlace.id} aria-live="polite"><span>MY ROUTE · STOP {String(selectedPlaces.indexOf(activePlace) + 1).padStart(2, "0")}</span><strong>{activePlace.name}</strong><small>{activePlace.suggestedTime} 추천 · {durationLabel}</small></div><a className="open-map" href={activePlaceMapUrl} target="_blank" rel="noreferrer" aria-label={`${activePlace.name} Google 지도에서 열기`}>Google 지도에서 보기 ↗</a></> : <div className="map-empty"><span>YOUR ROUTE MAP</span><strong>관광지를 선택하면<br />여기에 코스가 그려져요.</strong><small>선택한 순서대로 번호와 이동선이 표시됩니다.</small></div>}
+        </section>
+      </div>
     </main>
   );
 }
