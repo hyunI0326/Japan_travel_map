@@ -13,22 +13,27 @@
   <meta name="twitter:card" content="summary_large_image">
   <link rel="icon" href="./public/favicon.svg?v=20260816-7">
   <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css">
-  <link rel="stylesheet" href="./style.css?v=20260908-1">
+  <link rel="stylesheet" href="./style.css?v=20260909-1">
 </head>
 <body>
   <section class="landing-intro" aria-labelledby="landing-title">
     <div class="landing-stage">
-      <div class="landing-grid" aria-hidden="true"></div>
       <div class="landing-copy">
         <p>MOMOTABI · JAPAN TRIP PLANNER</p>
         <h1 id="landing-title">여행의 시작을<br>손에 올려보세요.</h1>
         <span>SCROLL TO EXPLORE</span>
       </div>
-      <div class="journey-object" aria-hidden="true">
-        <div class="journey-object__ring journey-object__ring--back"></div>
-        <div class="journey-object__core"><span>旅</span></div>
-        <div class="journey-object__ring journey-object__ring--front"></div>
-        <div class="journey-object__shadow"></div>
+      <div class="journey-object">
+        <div class="journey-object__viewport" role="application" aria-label="확대 및 이동 가능한 일본 열도 그림" aria-describedby="diorama-help" tabindex="0">
+          <img class="journey-object__image" src="./public/japan-archipelago-3d.png" alt="일본 열도 모양의 입체 미니어처" width="1254" height="1254" fetchpriority="high" decoding="async" draggable="false">
+        </div>
+        <div class="journey-object__toolbar" aria-label="그림 보기 조절">
+          <button type="button" data-zoom="out" aria-label="축소">−</button>
+          <output aria-label="확대 비율">100%</output>
+          <button type="button" data-zoom="in" aria-label="확대">+</button>
+          <button type="button" data-zoom="reset">원위치</button>
+        </div>
+        <p id="diorama-help" class="journey-object__help">휠로 확대·축소 · 드래그로 이동<span>키보드: 방향키 이동 · + / − 확대·축소 · Home 초기화</span></p>
       </div>
       <a class="landing-skip" href="#route">여행 계획 시작하기 <span aria-hidden="true">↓</span></a>
     </div>
@@ -84,6 +89,7 @@
   </main>
   <script src="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js"></script>
   <script src="./data.js?v=20260816-7"></script>
+  <script src="./japan-diorama.js?v=20260909-1" defer></script>
   <script src="./main.js?v=20260816-7"></script>
 </body>
 </html>
