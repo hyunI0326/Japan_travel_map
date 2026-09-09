@@ -8,6 +8,7 @@ import BudgetCalculator from "./budget-calculator";
 import PolicyLinks from "./policy-links";
 import SiteLink from "./site-link";
 import TravelMap from "./travel-map";
+import JapanDiorama from "./japan-diorama";
 import { authClient } from "@/lib/auth-client";
 import { trackFunnelEvent } from "@/lib/analytics-client";
 import {
@@ -1188,18 +1189,12 @@ export default function TripPlanner({
     <main className="app-shell" id="top">
       <section className="landing-intro" aria-labelledby="landing-title">
         <div className="landing-stage">
-          <div className="landing-grid" aria-hidden="true" />
           <div className="landing-copy">
             <p>MOMOTABI · JAPAN TRIP PLANNER</p>
             <h1 id="landing-title">여행의 시작을<br />손에 올려보세요.</h1>
             <span>SCROLL TO EXPLORE</span>
           </div>
-          <div className="journey-object" aria-hidden="true">
-            <div className="journey-object__ring journey-object__ring--back" />
-            <div className="journey-object__core"><span>旅</span></div>
-            <div className="journey-object__ring journey-object__ring--front" />
-            <div className="journey-object__shadow" />
-          </div>
+          <JapanDiorama />
           <a className="landing-skip" href="#planner">여행 계획 시작하기 <span aria-hidden="true">↓</span></a>
         </div>
       </section>
