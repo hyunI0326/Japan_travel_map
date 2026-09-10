@@ -1,5 +1,6 @@
 @import "maplibre-gl/dist/maplibre-gl.css";
 @import "tailwindcss";
+@import "./terrain-explorer.css";
 
 :root {
   --ink: #0f172a;

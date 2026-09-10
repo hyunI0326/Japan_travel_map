@@ -13,30 +13,12 @@
   <meta name="twitter:card" content="summary_large_image">
   <link rel="icon" href="./public/favicon.svg?v=20260816-7">
   <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css">
-  <link rel="stylesheet" href="./style.css?v=20260909-1">
+  <link rel="stylesheet" href="./style.css?v=20260909-3">
+  <link rel="stylesheet" href="./app/terrain-explorer.css?v=20260909-3">
 </head>
 <body>
   <section class="landing-intro" aria-labelledby="landing-title">
-    <div class="landing-stage">
-      <div class="landing-copy">
-        <p>MOMOTABI · JAPAN TRIP PLANNER</p>
-        <h1 id="landing-title">여행의 시작을<br>손에 올려보세요.</h1>
-        <span>SCROLL TO EXPLORE</span>
-      </div>
-      <div class="journey-object">
-        <div class="journey-object__viewport" role="application" aria-label="확대 및 이동 가능한 일본 열도 그림" aria-describedby="diorama-help" tabindex="0">
-          <img class="journey-object__image" src="./public/japan-archipelago-3d.png" alt="일본 열도 모양의 입체 미니어처" width="1254" height="1254" fetchpriority="high" decoding="async" draggable="false">
-        </div>
-        <div class="journey-object__toolbar" aria-label="그림 보기 조절">
-          <button type="button" data-zoom="out" aria-label="축소">−</button>
-          <output aria-label="확대 비율">100%</output>
-          <button type="button" data-zoom="in" aria-label="확대">+</button>
-          <button type="button" data-zoom="reset">원위치</button>
-        </div>
-        <p id="diorama-help" class="journey-object__help">휠로 확대·축소 · 드래그로 이동<span>키보드: 방향키 이동 · + / − 확대·축소 · Home 초기화</span></p>
-      </div>
-      <a class="landing-skip" href="#route">여행 계획 시작하기 <span aria-hidden="true">↓</span></a>
-    </div>
+    <div class="terrain-explorer"><header class="explorer-header"><a class="explorer-brand" href="#top"><span aria-hidden="true">も</span> MOMOTABI<small>JAPAN, AT YOUR PACE.</small></a><a class="explorer-header-link" href="#route">나만의 여행 만들기 <span aria-hidden="true">↗</span></a></header><div class="journey-object"><div class="journey-object__viewport" role="application" aria-roledescription="확대 및 이동 가능한 그림" aria-label="일본 열도 3D 그림" aria-describedby="diorama-help" tabindex="0"><div class="journey-object__scene" style="transform:translate(0px, 0px) scale(1)"><img class="journey-object__image" src="./public/japan-terrain-cinematic.png" alt="짙은 바다 위에 금빛 산맥과 해안선이 드러나는 일본 열도 지형 일러스트" width="1536" height="1024" fetchPriority="high" decoding="async" draggable="false"/><button data-destination="tokyo" class="terrain-marker is-selected" style="left:75%;top:50%" type="button" aria-label="도쿄 둘러보기" aria-pressed="true"><span class="terrain-marker__dot"></span><span>TOKYO<small>도쿄</small></span></button><button data-destination="kyoto" class="terrain-marker" style="left:61%;top:55%" type="button" aria-label="교토 둘러보기" aria-pressed="false"><span class="terrain-marker__dot"></span><span>KYOTO<small>교토</small></span></button><button data-destination="osaka" class="terrain-marker" style="left:58%;top:61%" type="button" aria-label="오사카 둘러보기" aria-pressed="false"><span class="terrain-marker__dot"></span><span>OSAKA<small>오사카</small></span></button><button data-destination="fukuoka" class="terrain-marker" style="left:38%;top:67%" type="button" aria-label="후쿠오카 둘러보기" aria-pressed="false"><span class="terrain-marker__dot"></span><span>FUKUOKA<small>후쿠오카</small></span></button><button data-destination="sapporo" class="terrain-marker" style="left:83%;top:17%" type="button" aria-label="삿포로 둘러보기" aria-pressed="false"><span class="terrain-marker__dot"></span><span>SAPPORO<small>삿포로</small></span></button></div></div><div class="journey-object__toolbar" aria-label="그림 보기 조절"><button type="button" data-zoom="out" aria-label="축소">−</button><output aria-label="확대 비율">100%</output><button type="button" data-zoom="in" aria-label="확대">+</button><button type="button" data-zoom="reset">원위치</button></div><div class="explorer-compass" aria-hidden="true"><span>N</span>↑<small>JAPAN</small></div><p id="diorama-help" class="journey-object__help">휠로 확대·축소 · 드래그로 이동<span>키보드: 방향키 이동 · + / − 확대·축소 · Home 초기화</span></p></div><aside class="explorer-panel" aria-label="여행 지역 탐색"><p class="explorer-eyebrow"><span></span> EXPLORE JAPAN / 01</p><h1 id="landing-title">A little further.<br/><em>A little closer.</em></h1><p class="explorer-intro">지도를 펼치고, 마음이 향하는 곳으로.</p><div class="explorer-divider"></div><p class="explorer-label">YOUR NEXT DESTINATION</p><div class="explorer-destinations" aria-label="여행 도시 선택"><button type="button" data-destination="tokyo" aria-pressed="true">도쿄</button><button type="button" data-destination="kyoto" aria-pressed="false">교토</button><button type="button" data-destination="osaka" aria-pressed="false">오사카</button><button type="button" data-destination="fukuoka" aria-pressed="false">후쿠오카</button><button type="button" data-destination="sapporo" aria-pressed="false">삿포로</button></div><div class="explorer-destination"><div class="explorer-city"><h2>도쿄<span>TOKYO</span></h2><span aria-hidden="true">東京</span></div><h3>도시의 빛을 따라.</h3><p>골목의 작은 카페부터 잠들지 않는 거리까지. 익숙한 일상 너머, 나만의 도쿄를 발견하세요.</p><span class="explorer-theme">도시 · 미식 · 문화</span></div><a class="explorer-cta" href="#route">도쿄 여행 계획하기 <span aria-hidden="true">↗</span></a><p class="explorer-panel-note">장소를 고르면, 나만의 코스가 완성돼요.</p></aside><footer class="explorer-footer"><span><i></i> JAPAN COLLECTION</span><span class="explorer-coordinate">35°40′ N 139°45′ E</span><a href="#route">SCROLL TO PLAN <span aria-hidden="true">↓</span></a></footer></div>
   </section>
   <main class="app-shell" id="top">
     <header class="topbar">
@@ -89,7 +71,7 @@
   </main>
   <script src="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js"></script>
   <script src="./data.js?v=20260816-7"></script>
-  <script src="./japan-diorama.js?v=20260909-1" defer></script>
+  <script src="./japan-diorama.js?v=20260909-3" defer></script>
   <script src="./main.js?v=20260816-7"></script>
 </body>
 </html>

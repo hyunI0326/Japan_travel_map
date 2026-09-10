@@ -1188,15 +1188,7 @@ export default function TripPlanner({
   return (
     <main className="app-shell" id="top">
       <section className="landing-intro" aria-labelledby="landing-title">
-        <div className="landing-stage">
-          <div className="landing-copy">
-            <p>MOMOTABI · JAPAN TRIP PLANNER</p>
-            <h1 id="landing-title">여행의 시작을<br />손에 올려보세요.</h1>
-            <span>SCROLL TO EXPLORE</span>
-          </div>
-          <JapanDiorama />
-          <a className="landing-skip" href="#planner">여행 계획 시작하기 <span aria-hidden="true">↓</span></a>
-        </div>
+        <JapanDiorama onExplore={(nextRegionId) => { void loadCatalog(nextRegionId); }} />
       </section>
 
       <div className="planner-experience">
